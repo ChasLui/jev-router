@@ -1,5 +1,5 @@
 {
-  "name": "jev-claude",
+  "name": "jev-router",
   "version": "0.1.0",
   "description": "Runs the real Claude Code CLI and routes each turn to the cheapest sufficient model using TypeSafe Jev",
   "type": "module",

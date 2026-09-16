@@ -1,4 +1,4 @@
-# jev-claude
+# jev-router
 
 Automatic model routing for Claude Code. Each turn goes to the cheapest model that can
 actually handle it — trivial edits to Haiku, hard debugging to Opus — with the decision made
@@ -13,12 +13,13 @@ Code's.
 Requires [Claude Code](https://code.claude.com/docs/en/setup) and Node.js 20.12+.
 
 ```bash
-npm install -g jev-claude
+npm install -g jev-router
 echo "JEV_API_KEY=..." > ~/.jev-claude.env
 jev-claude
 ```
 
-Get a key from [TypeSafe](https://docs.typesafe.ai) for free. No `ANTHROPIC_API_KEY` is needed:
+Get a key from [TypeSafe](https://docs.typesafe.ai) for free. The package is `jev-router`;
+the command it installs is `jev-claude`. No `ANTHROPIC_API_KEY` is needed:
 `jev-claude` reuses your existing `claude login`, so a Claude Pro or Max subscription works
 as-is. Without a Jev key you simply get plain Claude Code.
 
