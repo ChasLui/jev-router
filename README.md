@@ -1,4 +1,4 @@
-# jev-router (for Claude Code)
+# jev-router (43% less ⬇️ tokens consumption for Claude Code)
 
 ![Jev Auto in the Claude Code model picker](docs/model-picker.png)
 
