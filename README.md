@@ -1,5 +1,7 @@
 # jev-router
 
+![Jev Auto in the Claude Code model picker](docs/model-picker.png)
+
 Automatic model routing for Claude Code. Each turn goes to the cheapest model that can
 actually handle it — trivial edits to Haiku, hard debugging to Opus — with the decision made
 by [Jev](https://docs.typesafe.ai), TypeSafe's System One decision model.
@@ -28,7 +30,8 @@ the rest behave exactly as you expect.
 
 ## Using it
 
-Sessions start on a **Jev Auto** entry added to the `/model` picker. While it is selected,
+Sessions start on a **Jev Auto** entry added to the `/model` picker
+([pictured above](docs/model-picker.png)). While it is selected,
 every turn is routed. Pick any other model and routing stands down entirely: your choice goes
 to the API untouched and Jev is not consulted. Reselect Jev Auto to resume routing
 mid-session.
