@@ -1,4 +1,4 @@
-# jev-router
+# jev-router (for Claude Code)
 
 ![Jev Auto in the Claude Code model picker](docs/model-picker.png)
 
