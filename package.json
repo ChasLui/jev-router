@@ -1,0 +1,31 @@
+{
+  "name": "jev-claude",
+  "version": "0.1.0",
+  "description": "Runs the real Claude Code CLI and routes each turn to the cheapest sufficient model using TypeSafe Jev",
+  "type": "module",
+  "bin": {
+    "jev-claude": "bin/jev-claude.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "model-routing",
+    "jev",
+    "typesafe"
+  ],
+  "engines": {
+    "node": ">=20.12"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0"
+  }
+}
