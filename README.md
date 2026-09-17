@@ -78,17 +78,28 @@ the last routing decision:
 ┌─────────────────────────────────┐
 │ Jev Router                      │
 │                                 │
+│ Jev request                     │
+│ Prompt: explain the router      │
+│ Current tier: HAIKU             │
+│ Context tokens: 6200            │
+│                                 │
+│ Jev response                    │
 │ Task complexity     0.82        │
 │ Reasoning required  0.91        │
 │ Tool complexity     0.64        │
 │ Context size        0.31        │
 │                                 │
+│ Recommended tier: SONNET        │
 │ Selected model: SONNET          │
 │                                 │
 │ Confidence: 94%                 │
 │ Decision: Jev recommendation    │
 └─────────────────────────────────┘
 ```
+
+The report is rendered locally from the exact prompt, System One request, and System One
+response saved when routing occurred. Recent decisions are retained per CLI session; invoking
+the explanation skill does not ask Jev to score the prompt again.
 
 > Choosing a model with `Enter` can save it as Claude Code's default. `jev-claude` restores
 > the previous default on exit so `jev-auto` cannot break plain `claude`.

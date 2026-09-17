@@ -1,6 +1,15 @@
 const WIDTH = 33;
 const row = (text = "") => `│ ${text.slice(0, WIDTH - 2).padEnd(WIDTH - 2)} │`;
 const metric = (value) => (Number.isFinite(value) ? value.toFixed(2) : "n/a");
+const wrapped = (label, value) => {
+  const words = `${label}${value}`.replace(/\s+/g, " ").trim().split(" ");
+  const lines = [];
+  for (const word of words) {
+    if (!lines.length || `${lines.at(-1)} ${word}`.length > WIDTH - 2) lines.push(word);
+    else lines[lines.length - 1] += ` ${word}`;
+  }
+  return lines.map(row);
+};
 
 const decision = (reason = "") => {
   if (reason.includes("override")) return "prompt override";
@@ -17,15 +26,24 @@ export function formatExplanation(status) {
   if (status.manual) return "Jev Router: routing is paused because you selected a model manually.";
 
   const m = status.metrics ?? {};
+  const request = status.jev?.request?.state;
+  const recommendation = status.jev?.response?.answers?.model_tier?.choice ?? status.tier ?? "unknown";
   return [
     `┌${"─".repeat(WIDTH)}┐`,
     row("Jev Router"),
     row(),
+    row("Jev request"),
+    ...wrapped("Prompt: ", status.prompt ?? "not recorded"),
+    row(`Current tier: ${(request?.session?.current_model ?? "unknown").toUpperCase()}`),
+    row(`Context tokens: ${request?.session?.context_tokens ?? "unknown"}`),
+    row(),
+    row("Jev response"),
     row(`Task complexity     ${metric(m.taskComplexity)}`),
     row(`Reasoning required  ${metric(m.reasoningRequired)}`),
     row(`Tool complexity     ${metric(m.toolComplexity)}`),
     row(`Context size        ${metric(m.contextSize)}`),
     row(),
+    row(`Recommended tier: ${recommendation.toUpperCase()}`),
     row(`Selected model: ${(status.model ?? status.tier ?? "unknown").toUpperCase()}`),
     row(),
     row(`Confidence: ${status.confidence == null ? "n/a" : `${Math.round(status.confidence * 100)}%`}`),

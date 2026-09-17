@@ -4,9 +4,14 @@ import { formatExplanation } from "../src/explain.mjs";
 
 test("formats the last routing decision", () => {
   const output = formatExplanation({
+    prompt: "Explain the router architecture",
     tier: "sonnet",
     confidence: 0.94,
     reason: "jev",
+    jev: {
+      request: { state: { session: { current_model: "haiku", context_tokens: 6200 } } },
+      response: { answers: { model_tier: { choice: "sonnet" } } },
+    },
     metrics: {
       taskComplexity: 0.82,
       reasoningRequired: 0.91,
@@ -16,6 +21,10 @@ test("formats the last routing decision", () => {
   });
 
   assert.match(output, /Task complexity     0\.82/);
+  assert.match(output, /Prompt: Explain the router/);
+  assert.match(output, /Current tier: HAIKU/);
+  assert.match(output, /Context tokens: 6200/);
+  assert.match(output, /Recommended tier: SONNET/);
   assert.match(output, /Selected model: SONNET/);
   assert.match(output, /Confidence: 94%/);
   assert.match(output, /Decision: Jev recommendation/);

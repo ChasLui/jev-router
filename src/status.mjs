@@ -19,6 +19,13 @@ export function writeStatus(sessionId, status) {
   }
 }
 
+/** Publish a routed prompt and retain recent exact Jev exchanges for diagnosis. */
+export function writeDecision(sessionId, decision) {
+  const previous = readStatus(sessionId);
+  const history = [...(previous?.history ?? []), decision].slice(-20);
+  writeStatus(sessionId, { ...decision, history });
+}
+
 /** Latest routing decision for a session, or null if none has been made yet. */
 export function readStatus(sessionId) {
   try {

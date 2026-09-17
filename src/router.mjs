@@ -27,21 +27,21 @@ export async function askJev({ prompt, current, contextTokens, available }) {
   const started = Date.now();
   const abort = new AbortController();
   const deadline = setTimeout(() => abort.abort(), THRESHOLDS.jevDeadlineMs);
+  const request = {
+    state: {
+      request: prompt,
+      session: { current_model: current, context_tokens: contextTokens },
+      environment: { available_models: available },
+    },
+    questions: QUESTIONS,
+  };
   try {
-    const result = await getClient().systemOne(
-      {
-        state: {
-          request: prompt,
-          session: { current_model: current, context_tokens: contextTokens },
-          environment: { available_models: available },
-        },
-        questions: QUESTIONS,
-      },
-      { signal: abort.signal },
-    );
+    const result = await getClient().systemOne(request, { signal: abort.signal });
     const { model_tier: answer, task_complexity, reasoning_required, tool_complexity } = result.answers;
     return {
       ...answer,
+      request,
+      response: result,
       metrics: {
         taskComplexity: task_complexity.score / COMPLEXITY_MAX_SCORE,
         reasoningRequired: reasoning_required.score / COMPLEXITY_MAX_SCORE,

@@ -13,7 +13,7 @@ test("the sentinel is not mistaken for a real tier", () => {
   assert.equal(tierOf("jev-auto"), null);
 });
 import { tierOf, isAuto } from "../src/config.mjs";
-import { writeStatus, readStatus } from "../src/status.mjs";
+import { writeDecision, writeStatus, readStatus } from "../src/status.mjs";
 
 test("reads the session id out of Claude Code's metadata", () => {
   const sid = "11111111-2222-4333-8444-555555555555";
@@ -28,6 +28,16 @@ test("status round-trips per session and misses cleanly", () => {
   assert.deepEqual(readStatus(sid), { tier: "opus", confidence: 0.87, reason: "jev" });
   assert.equal(readStatus("no-such-session"), null);
   assert.doesNotThrow(() => writeStatus("", { tier: "opus" }));
+});
+
+test("routing status retains the exact recent Jev exchanges", () => {
+  const sid = `history-${process.pid}`;
+  writeDecision(sid, { prompt: "first", jev: { request: { id: 1 }, response: { confidence: 0.6 } } });
+  writeDecision(sid, { prompt: "second", jev: { request: { id: 2 }, response: { confidence: 0.8 } } });
+  const status = readStatus(sid);
+  assert.equal(status.prompt, "second");
+  assert.deepEqual(status.history.map(({ prompt }) => prompt), ["first", "second"]);
+  assert.equal(status.history[0].jev.response.confidence, 0.6);
 });
 
 test("recognises older model versions within a tier", () => {

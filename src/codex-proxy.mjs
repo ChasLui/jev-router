@@ -6,7 +6,7 @@ import { availableTiers } from "./config.mjs";
 import { askJev } from "./router.mjs";
 import { decide } from "./policy.mjs";
 import { log } from "./log.mjs";
-import { writeStatus } from "./status.mjs";
+import { writeDecision, writeStatus } from "./status.mjs";
 
 const CHATGPT_BASE_URL = "https://chatgpt.com/backend-api/codex";
 const API_BASE_URL = "https://api.openai.com/v1";
@@ -41,6 +41,9 @@ const cleanPrompt = (text) =>
     .replace(/<current_datetime>[\s\S]*?<\/current_datetime>/gi, "")
     .trim();
 
+export const isCodexAuxiliaryPrompt = (prompt) =>
+  /^Generate a concise, single-line task title\b/i.test(prompt);
+
 /** User text that starts a new Codex turn, or null for tool continuations. */
 export function codexNewTurnPrompt(body) {
   if (!Array.isArray(body?.input)) return null;
@@ -49,7 +52,7 @@ export function codexNewTurnPrompt(body) {
     if (item?.type === "function_call_output" || item?.type === "custom_tool_call_output") return null;
     if (item?.role !== "user") continue;
     const prompt = cleanPrompt(textOf(item.content));
-    if (prompt) return prompt;
+    if (prompt && !isCodexAuxiliaryPrompt(prompt)) return prompt;
   }
   return null;
 }
@@ -162,13 +165,16 @@ export async function startCodexProxy({
               tier = decision.tier;
               states.set(key, tier);
               routing = {
+                prompt,
                 tier,
                 model: codexModelOf(tier),
                 confidence: jev?.confidence ?? null,
                 metrics: jev?.metrics ?? null,
                 reason: decision.reason,
+                jev: jev ? { request: jev.request, response: jev.response } : null,
+                at: Date.now(),
               };
-              writeStatus(statusId, routing);
+              writeDecision(statusId, routing);
               debug(`${key} ${current} -> ${tier} (${decision.reason}) | ${prompt.slice(0, 60)}`);
             }
             applyCodexTier(body, tier, models);

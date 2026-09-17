@@ -9,6 +9,7 @@ import {
   applyCodexTier,
   codexConversationKey,
   codexNewTurnPrompt,
+  isCodexAuxiliaryPrompt,
   jevDecisionEvents,
   startCodexProxy,
   upstreamFor,
@@ -46,10 +47,14 @@ test("reads only fresh Codex user turns", () => {
   assert.equal(codexNewTurnPrompt(body), null);
   assert.equal(
     codexNewTurnPrompt({
-      input: [{ role: "user", content: "Generate a concise, single-line task title" }],
+      input: [
+        { type: "additional_tools", role: "developer", tools: [{}] },
+        { role: "user", content: "Generate a concise, single-line task title of at most 36 characters" },
+      ],
     }),
     null,
   );
+  assert.equal(isCodexAuxiliaryPrompt("Generate a concise, single-line task title of at most 36 characters"), true);
 });
 
 test("keeps sub-agent routing state separate", () => {
@@ -162,6 +167,8 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
       return {
         choice: "opus",
         confidence: 0.91,
+        request: { state: { request: "debug this race" } },
+        response: { answers: { model_tier: { choice: "opus", confidence: 0.91 } } },
         metrics: {
           taskComplexity: 0.82,
           reasoningRequired: 0.91,
@@ -196,6 +203,9 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
   assert.equal(seen[1].body.model, "gpt-5.6-sol");
   assert.equal(readStatus(statusId).tier, "opus");
   assert.equal(readStatus(statusId).model, "gpt-5.6-sol");
+  assert.equal(readStatus(statusId).prompt, "debug this race");
+  assert.equal(readStatus(statusId).jev.request.state.request, "debug this race");
+  assert.equal(readStatus(statusId).history.length, 1);
   assert.equal(readStatus(statusId).metrics.reasoningRequired, 0.91);
   assert(response.indexOf("response.created") < response.indexOf("[Jev] routed this turn"));
   assert(response.indexOf("[Jev] routed this turn") < response.indexOf("response.completed"));
@@ -205,11 +215,15 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
     headers: { ...headers, "content-type": "application/json" },
     body: JSON.stringify({
       model: "jev-router",
-      input: [{ role: "user", content: "Generate a concise, single-line task title" }],
+      input: [
+        { type: "additional_tools", role: "developer", tools: [{}] },
+        { role: "user", content: "Generate a concise, single-line task title of at most 36 characters" },
+      ],
     }),
   });
   assert.equal(routeCalls, 1);
   assert.equal(readStatus(statusId).confidence, 0.91);
+  assert.equal(readStatus(statusId).history.length, 1);
 
   await fetch(`http://127.0.0.1:${port}/responses`, {
     method: "POST",
