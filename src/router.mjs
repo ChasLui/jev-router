@@ -1,5 +1,5 @@
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { QUESTIONS, THRESHOLDS } from "./config.mjs";
+import { COMPLEXITY_MAX_SCORE, CONTEXT_WINDOW_TOKENS, QUESTIONS, THRESHOLDS } from "./config.mjs";
 import { log } from "./log.mjs";
 
 // The SDK's defaults (10s per attempt, 2 retries, no total budget) are far too slow for a
@@ -21,26 +21,35 @@ function getClient() {
  * Asks Jev which tier fits this prompt. Returns null on any failure, which the policy
  * layer reads as "keep the current model" — routing must never block a prompt.
  *
- * @returns {Promise<?{choice: string, confidence: number, probabilities: object, ms: number}>}
+ * @returns {Promise<?{choice: string, confidence: number, probabilities: object, metrics: object, ms: number}>}
  */
 export async function askJev({ prompt, current, contextTokens, available }) {
   const started = Date.now();
   const abort = new AbortController();
   const deadline = setTimeout(() => abort.abort(), THRESHOLDS.jevDeadlineMs);
+  const request = {
+    state: {
+      request: prompt,
+      session: { current_model: current, context_tokens: contextTokens },
+      environment: { available_models: available },
+    },
+    questions: QUESTIONS,
+  };
   try {
-    const result = await getClient().systemOne(
-      {
-        state: {
-          request: prompt,
-          session: { current_model: current, context_tokens: contextTokens },
-          environment: { available_models: available },
-        },
-        questions: QUESTIONS,
+    const result = await getClient().systemOne(request, { signal: abort.signal });
+    const { model_tier: answer, task_complexity, reasoning_required, tool_complexity } = result.answers;
+    return {
+      ...answer,
+      request,
+      response: result,
+      metrics: {
+        taskComplexity: task_complexity.score / COMPLEXITY_MAX_SCORE,
+        reasoningRequired: reasoning_required.score / COMPLEXITY_MAX_SCORE,
+        toolComplexity: tool_complexity.score / COMPLEXITY_MAX_SCORE,
+        contextSize: Math.min(contextTokens / CONTEXT_WINDOW_TOKENS, 1),
       },
-      { signal: abort.signal },
-    );
-    const answer = result.answers.model_tier;
-    return { ...answer, ms: Date.now() - started };
+      ms: Date.now() - started,
+    };
   } catch (err) {
     log(`routing failed, keeping ${current}: ${err.message}`);
     return null;

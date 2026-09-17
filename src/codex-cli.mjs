@@ -1,10 +1,20 @@
 import { spawn } from "node:child_process";
-import { accessSync, constants } from "node:fs";
+import { accessSync, constants, copyFileSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CODEX_AUTO_MODEL, startCodexProxy } from "./codex-proxy.mjs";
 
 const PROVIDER = "jev";
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const EXPLAIN_SKILL = join(ROOT, "skills", "codex", "jev-explain", "SKILL.md");
+
+export function installCodexSkill(home = homedir()) {
+  const target = join(home, ".agents", "skills", "jev-router-explain", "SKILL.md");
+  mkdirSync(dirname(target), { recursive: true });
+  copyFileSync(EXPLAIN_SKILL, target);
+  return target;
+}
 
 export function loadEnv() {
   for (const file of [
@@ -63,6 +73,11 @@ export const codexArgs = (baseURL, args) => [
 // Loads configuration, starts the optional routing proxy, and launches the Codex CLI.
 export async function runCodex() {
   loadEnv();
+  try {
+    installCodexSkill();
+  } catch (err) {
+    process.stderr.write(`[jev] could not install the Codex explanation skill: ${err.message}\n`);
+  }
   const command = resolveCodex();
   if (!command) {
     process.stderr.write(
@@ -76,8 +91,10 @@ export async function runCodex() {
 
   let args = process.argv.slice(2);
   let close = () => {};
+  const statusId = `codex-${process.pid}`;
+  process.env.JEV_CODEX_STATUS_ID = statusId;
   if (process.env.JEV_API_KEY || process.env.TYPESAFE_API_KEY) {
-    const proxy = await startCodexProxy();
+    const proxy = await startCodexProxy({ statusId });
     close = proxy.close;
     args = codexArgs(`http://127.0.0.1:${proxy.port}`, args);
   } else {

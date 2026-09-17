@@ -1,5 +1,5 @@
 // Every routing decision knob lives here, so the whole policy is reviewable in one file.
-import { choice } from "@typesafe-ai/sdk";
+import { choice, score } from "@typesafe-ai/sdk";
 
 /**
  * Model tiers, cheapest first. `id` is what goes into the API request body; `family` is the
@@ -66,6 +66,23 @@ export const THRESHOLDS = {
   jevMaxRetries: 1,
 };
 
+export const CONTEXT_WINDOW_TOKENS = 200000;
+
+const COMPLEXITY_SCALE = [
+  "None",
+  "Very low",
+  "Low",
+  "Some",
+  "Moderate",
+  "Moderate to high",
+  "High",
+  "Very high",
+  "Severe",
+  "Extreme",
+];
+
+export const COMPLEXITY_MAX_SCORE = COMPLEXITY_SCALE.length - 1;
+
 /** Phrases that mean "the human already decided", checked against the raw prompt. */
 export const OVERRIDE_PATTERNS = TIERS.map((t) => ({
   tier: t.name,
@@ -81,6 +98,18 @@ export const OVERRIDE_PATTERNS = TIERS.map((t) => ({
 }));
 
 export const QUESTIONS = {
+  task_complexity: score(
+    "How complex is the coding task overall, including ambiguity, scope, and blast radius?",
+    COMPLEXITY_SCALE,
+  ),
+  reasoning_required: score(
+    "How much reasoning is required to complete the request correctly in one pass?",
+    COMPLEXITY_SCALE,
+  ),
+  tool_complexity: score(
+    "How complex is the tool use required, from no tools to many coordinated or stateful operations?",
+    COMPLEXITY_SCALE,
+  ),
   model_tier: choice(
     [
       "Pick the cheapest model tier that can fully complete this coding request in one pass, without a retry on a stronger model.",

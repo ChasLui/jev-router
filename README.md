@@ -79,6 +79,58 @@ Claude Code otherwise remains unchanged, including its keybindings, tools, permi
 `/compact`, `/resume`, and session handling. An existing custom `statusLine` is preserved;
 set `JEV_NO_STATUSLINE=1` to disable Jev's status line.
 
+The explanation skill is bundled with the npm package and loaded automatically: run
+`/jev-explain` in `jev-claude`, or `$jev-explain` in `jev-codex`, to see the factors behind
+the last routing decision:
+
+```text
+┌─────────────────────────────────┐
+│ Jev Router                      │
+│                                 │
+│ Jev request                     │
+│ Prompt: explain the router      │
+│ Current tier: HAIKU             │
+│ Context tokens: 6200            │
+│                                 │
+│ Jev response                    │
+│ Task complexity     0.82        │
+│ Reasoning required  0.91        │
+│ Tool complexity     0.64        │
+│ Context size        0.31        │
+│                                 │
+│ Recommended tier: SONNET        │
+│ Selected model: SONNET          │
+│                                 │
+│ Confidence: 94%                 │
+│ Decision: Jev recommendation    │
+└─────────────────────────────────┘
+```
+
+The report is rendered locally from the exact prompt, System One request, and System One
+response saved when routing occurred. Recent decisions are retained per CLI session; invoking
+the explanation skill does not ask Jev to score the prompt again.
+
+### Explanation data location
+
+Both `jev-claude` and `jev-codex` keep up to 20 recent routing exchanges in one JSON file per
+CLI session under Node.js's operating-system temporary directory:
+
+| Platform | Default location |
+| --- | --- |
+| Windows | `%TEMP%\jev-claude\<session-id>.json` |
+| macOS | `$TMPDIR/jev-claude/<session-id>.json` (normally under `/var/folders/.../T`) |
+| Ubuntu/Linux | `${TMPDIR:-/tmp}/jev-claude/<session-id>.json` |
+
+Print the exact directory selected on the current machine with:
+
+```bash
+node -e "console.log(require('node:path').join(require('node:os').tmpdir(), 'jev-claude'))"
+```
+
+Claude filenames use Claude Code's session UUID. Codex filenames use
+`codex-<jev-codex-process-id>.json`. These temporary files contain prompt text and Jev's exact
+request and response; the operating system may remove them during normal temporary-file cleanup.
+
 > Choosing a model with `Enter` can save it as Claude Code's default. `jev-claude` restores
 > the previous default on exit so `jev-auto` cannot break plain `claude`.
 
@@ -95,6 +147,9 @@ Each fresh decision appears as Codex commentary:
 ```text
 [Jev] routed this turn to gpt-5.6-sol (jev, confidence 0.91).
 ```
+
+`jev-codex` installs or refreshes the packaged `$jev-explain` skill when it starts, so it is
+available from any repository without separate setup.
 
 Codex's footer shows `jev-router` because it displays the selected picker entry,
 not the model chosen behind that provider. If Jev is unavailable, the commentary names the

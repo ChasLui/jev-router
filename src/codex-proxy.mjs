@@ -6,6 +6,7 @@ import { availableTiers } from "./config.mjs";
 import { askJev } from "./router.mjs";
 import { decide } from "./policy.mjs";
 import { log } from "./log.mjs";
+import { writeDecision, writeStatus } from "./status.mjs";
 
 const CHATGPT_BASE_URL = "https://chatgpt.com/backend-api/codex";
 const API_BASE_URL = "https://api.openai.com/v1";
@@ -38,16 +39,21 @@ const cleanPrompt = (text) =>
   text
     .replace(/<system[-_]reminder>[\s\S]*?<\/system[-_]reminder>/gi, "")
     .replace(/<current_datetime>[\s\S]*?<\/current_datetime>/gi, "")
+    .replace(/<environment_context>[\s\S]*?<\/environment_context>/gi, "")
     .trim();
+
+export const isCodexAuxiliaryPrompt = (prompt) =>
+  /^Generate a concise, single-line task title\b/i.test(prompt);
 
 /** User text that starts a new Codex turn, or null for tool continuations. */
 export function codexNewTurnPrompt(body) {
   if (!Array.isArray(body?.input)) return null;
+  if (!body.input.some((item) => item?.type === "additional_tools")) return null;
   for (const item of [...body.input].reverse()) {
     if (item?.type === "function_call_output" || item?.type === "custom_tool_call_output") return null;
     if (item?.role !== "user") continue;
     const prompt = cleanPrompt(textOf(item.content));
-    if (prompt) return prompt;
+    if (prompt && !isCodexAuxiliaryPrompt(prompt)) return prompt;
   }
   return null;
 }
@@ -129,6 +135,7 @@ export async function startCodexProxy({
   chatgptBaseURL = CHATGPT_BASE_URL,
   apiBaseURL = API_BASE_URL,
   route = askJev,
+  statusId = "",
 } = {}) {
   const states = new Map();
   const models = new Map();
@@ -149,18 +156,33 @@ export async function startCodexProxy({
             const key = codexConversationKey(body);
             const current = states.get(key) ?? "sonnet";
             const prompt = codexNewTurnPrompt(body);
+            const explaining = prompt?.includes("<jev-explain>") || /^\$jev-explain\b/i.test(prompt ?? "");
             let tier = current;
-            if (prompt) {
+            if (prompt && !explaining) {
               const enabled = availableTiers().filter((name) => models.size === 0 || models.has(codexModelOf(name)));
               const contextTokens = Math.round(JSON.stringify(body.input).length / 4);
               const jev = await route({ prompt, current, contextTokens, available: enabled });
               const decision = decide({ prompt, jev, current, available: enabled, contextTokens });
               tier = decision.tier;
               states.set(key, tier);
-              routing = { tier, confidence: jev?.confidence ?? null, reason: decision.reason };
+              routing = {
+                prompt,
+                tier,
+                model: codexModelOf(tier),
+                confidence: jev?.confidence ?? null,
+                metrics: jev?.metrics ?? null,
+                reason: decision.reason,
+                jev: jev ? { request: jev.request, response: jev.response } : null,
+                at: Date.now(),
+              };
+              writeDecision(statusId, routing);
               debug(`${key} ${current} -> ${tier} (${decision.reason}) | ${prompt.slice(0, 60)}`);
             }
             applyCodexTier(body, tier, models);
+          } else {
+            const prompt = codexNewTurnPrompt(body);
+            const explaining = prompt?.includes("<jev-explain>") || /^\$jev-explain\b/i.test(prompt ?? "");
+            if (prompt && !explaining) writeStatus(statusId, { manual: true, at: Date.now() });
           }
           out = Buffer.from(JSON.stringify(body));
         } catch (err) {
