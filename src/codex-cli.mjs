@@ -7,7 +7,7 @@ import { CODEX_AUTO_MODEL, startCodexProxy } from "./codex-proxy.mjs";
 
 const PROVIDER = "jev";
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const EXPLAIN_SKILL = join(ROOT, ".agents", "skills", "jev-explain", "SKILL.md");
+const EXPLAIN_SKILL = join(ROOT, "skills", "codex", "jev-explain", "SKILL.md");
 
 export function installCodexSkill(home = homedir()) {
   const target = join(home, ".agents", "skills", "jev-router-explain", "SKILL.md");

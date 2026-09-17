@@ -12,9 +12,9 @@
     "test": "node --test \"test/**/*.test.mjs\""
   },
   "files": [
-    ".agents/skills",
     ".claude/skills",
     "bin",
+    "skills",
     "src",
     "README.md"
   ],
