@@ -60,6 +60,7 @@ export const codexArgs = (baseURL, args) => [
   ...args,
 ];
 
+// Loads configuration, starts the optional routing proxy, and launches the Codex CLI.
 export async function runCodex() {
   loadEnv();
   const command = resolveCodex();
