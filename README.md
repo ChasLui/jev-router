@@ -2,8 +2,8 @@
 
 ![Jev Router in the Claude Code model picker](docs/model-picker.png)
 
-Automatic model routing for Claude Code. Each turn goes to the cheapest model that can
-actually handle it — trivial edits to Haiku, hard debugging to Opus — with the decision made
+Automatic model routing for Claude Code and OpenAI Codex. Each turn goes to the cheapest model that can
+actually handle it — trivial edits to the fast tier, hard debugging to the strong tier — with the decision made
 by [Jev](https://docs.typesafe.ai), TypeSafe's System One decision model.
 
 It runs the real Claude Code CLI. The interface, keybindings, tools, permission prompts,
@@ -41,6 +41,20 @@ as-is. Without a Jev key you simply get plain Claude Code.
 
 Every argument is forwarded to `claude`, so `jev-claude -p "..."`, `jev-claude --resume` and
 the rest behave exactly as you expect.
+
+For Codex, keep your existing `codex login` and run:
+
+```bash
+jev-codex
+```
+
+`jev-codex` launches the real Codex CLI with a temporary **Jev Router** provider. It reuses
+Codex's own ChatGPT subscription or API-key authentication; Jev never reads or stores the
+credential. The native `/model` picker includes **Jev Router** alongside the models available
+to your account. Selecting another model pauses routing, and selecting **Jev Router** resumes it.
+Each fresh Jev decision appears in Codex as a commentary line before the model's response.
+If Jev is unavailable, the line names the fallback model and points to
+`~/.jev-router.env`, where `JEV_API_KEY=...` should be set before restarting `jev-codex`.
 
 ## Using it
 
@@ -121,6 +135,10 @@ main conversation.
 | `JEV_NO_STATUSLINE` | Set to `1` to stop injecting the status line. |
 | `JEV_DEBUG` | Logs every decision and rewrite. Interactive sessions write to `~/.jev-claude.log`, since stderr would corrupt Claude Code's UI; `-p` mode writes to stderr. |
 | `JEV_DUMP` | Path prefix for dumping request bodies, for debugging wire-format changes. |
+| `JEV_CODEX_FAST_MODEL` | Codex model for trivial work. Defaults to `gpt-5.6-luna`. |
+| `JEV_CODEX_BALANCED_MODEL` | Codex model for ordinary work. Defaults to `gpt-5.6-terra`. |
+| `JEV_CODEX_STRONG_MODEL` | Codex model for hard work. Defaults to `gpt-5.6-sol`. |
+| `JEV_CODEX_LONG_MODEL` | Opt-in long-running tier. Defaults to `gpt-6-astra`. |
 
 Values are read from the environment, from `~/.jev-claude.env`, and from a `.env` in the
 launch directory, in increasing order of precedence. Since `jev-claude` is normally installed
@@ -172,6 +190,9 @@ Opus.
   call of a session while TLS is established. Tool-loop requests add nothing.
 - Claude Code's request format is not a public contract. If a future version moves things
   around, `JEV_DUMP` is how you find out.
+- Codex workspace-specific enterprise routing is internal to its built-in provider. The
+  wrapper forwards the same bearer token and account headers to the standard ChatGPT Codex
+  endpoint, but cannot reproduce a private workspace origin that Codex does not expose.
 - Developed and tested on Windows against Claude Code v2.1.101.
 
 ## Contributing
