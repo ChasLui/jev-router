@@ -28,12 +28,12 @@ if (status?.manual) {
   routed = `${DIM}⏸ manual${RESET} ${input.model?.display_name ?? ""}`.trimEnd();
 } else if (status) {
   const color = COLOR[status.tier] ?? "";
-  const p = status.confidence != null ? ` ${DIM}p=${status.confidence.toFixed(2)}${RESET}` : "";
+  const p = status.confidence != null ? ` ${DIM}(p=${status.confidence.toFixed(2)})${RESET}` : "";
   // Only name the reason when routing declined to do the obvious thing, so the common case
   // stays short and the interesting case explains itself.
   const held = status.reason && status.reason !== "jev" && !status.reason.includes("override");
   const why = held ? ` ${DIM}(${status.reason.split("/")[0]})${RESET}` : "";
-  routed = `${color}⚡ ${status.tier}${RESET}${p}${why}`;
+  routed = `${color}${status.tier}${RESET}${p}${why}`;
 }
 
 process.stdout.write(`${routed} ${DIM}·${RESET} ${dir} ${DIM}· ${pct}% context${RESET}\n`);
