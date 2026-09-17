@@ -29,7 +29,7 @@ export const tierSpec = (name) => TIERS.find((t) => t.name === name);
  * its presence in a request is an exact signal that the user wants this turn routed. Any
  * other model means the user picked one themselves and it must be passed straight through.
  */
-export const AUTO_MODEL = "jev-auto";
+export const AUTO_MODEL = "jev-router";
 
 /** Whether a request should be routed, or passed through as the user's own choice. */
 export const isAuto = (model) => model === AUTO_MODEL;
@@ -47,7 +47,7 @@ export const availableTiers = () =>
 
 export const THRESHOLDS = {
   /** Below this Jev confidence we refuse to downgrade and cap upgrades at `uncertainCeiling`. */
-  minConfidence: 0.6,
+  minConfidence: 0.3,
   /** Safest tier to land on when Jev is unsure. */
   uncertainCeiling: "sonnet",
   /**
