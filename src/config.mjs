@@ -69,13 +69,21 @@ export const THRESHOLDS = {
 /** Phrases that mean "the human already decided", checked against the raw prompt. */
 export const OVERRIDE_PATTERNS = TIERS.map((t) => ({
   tier: t.name,
-  re: new RegExp(`\\b(?:use|switch to|with|on)\\s+${t.name}\\b`, "i"),
+  re: new RegExp(
+    `\\b(?:use|switch to|with|on)\\s+(?:${{
+      haiku: "haiku|fast|luna",
+      sonnet: "sonnet|balanced|terra",
+      opus: "opus|strong|sol",
+      fable: "fable|long|astra",
+    }[t.name]})\\b`,
+    "i",
+  ),
 }));
 
 export const QUESTIONS = {
   model_tier: choice(
     [
-      "Pick the cheapest Claude model tier that can fully complete this coding request in one pass, without a retry on a stronger model.",
+      "Pick the cheapest model tier that can fully complete this coding request in one pass, without a retry on a stronger model.",
       "Judge the reasoning the request demands, not the length of the reply it asks for. A request that wants a one-line answer to a hard debugging or design question still needs a strong model; a request for a long but mechanical edit does not.",
     ],
     {

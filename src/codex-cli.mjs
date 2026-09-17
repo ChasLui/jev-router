@@ -1,0 +1,105 @@
+import { spawn } from "node:child_process";
+import { accessSync, constants } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { AUTO_MODEL } from "./config.mjs";
+import { startCodexProxy } from "./codex-proxy.mjs";
+
+const PROVIDER = "jev";
+
+export function loadEnv() {
+  for (const file of [
+    join(process.cwd(), ".env"),
+    join(homedir(), ".jev-router.env"),
+    join(homedir(), ".jev-claude.env"),
+  ]) {
+    try {
+      process.loadEnvFile(file);
+    } catch {
+      // Missing or unreadable; values may still come from the real environment.
+    }
+  }
+}
+
+export function resolveCodex() {
+  const win = process.platform === "win32";
+  const exts = win ? [".exe", ".ps1", ".cmd", ".bat"] : [""];
+  for (const dir of (process.env.PATH ?? "").split(win ? ";" : ":")) {
+    if (!dir) continue;
+    for (const ext of exts) {
+      const file = join(dir.replace(/^"|"$/g, ""), `codex${ext}`);
+      try {
+        accessSync(file, constants.F_OK);
+        if (/\.ps1$/i.test(file)) {
+          return { file: "powershell.exe", prefix: ["-NoProfile", "-File", file], shell: false };
+        }
+        return { file, prefix: [], shell: /\.(cmd|bat)$/i.test(file) };
+      } catch {
+        // Not here; keep looking.
+      }
+    }
+  }
+  return null;
+}
+
+export const codexArgs = (baseURL, args) => [
+  ...(args.some((arg) => arg === "--model" || arg === "-m" || arg.startsWith("--model="))
+    ? []
+    : ["--model", AUTO_MODEL]),
+  "--config",
+  `model_provider="${PROVIDER}"`,
+  "--config",
+  `model_providers.${PROVIDER}.name="Jev Router"`,
+  "--config",
+  `model_providers.${PROVIDER}.base_url="${baseURL}"`,
+  "--config",
+  `model_providers.${PROVIDER}.wire_api="responses"`,
+  "--config",
+  `model_providers.${PROVIDER}.requires_openai_auth=true`,
+  "--config",
+  `model_providers.${PROVIDER}.supports_websockets=false`,
+  ...args,
+];
+
+export async function runCodex() {
+  loadEnv();
+  const command = resolveCodex();
+  if (!command) {
+    process.stderr.write(
+      "[jev] OpenAI Codex is not installed, or `codex` is not on your PATH.\n" +
+        "[jev] jev-codex runs the real Codex CLI; install it first:\n" +
+        "[jev]   https://developers.openai.com/codex/cli\n",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  let args = process.argv.slice(2);
+  let close = () => {};
+  if (process.env.JEV_API_KEY || process.env.TYPESAFE_API_KEY) {
+    const proxy = await startCodexProxy();
+    close = proxy.close;
+    args = codexArgs(`http://127.0.0.1:${proxy.port}`, args);
+  } else {
+    process.stderr.write(
+      "[jev] no JEV_API_KEY found - starting Codex without routing\n" +
+        `[jev] add JEV_API_KEY=... to ${join(homedir(), ".jev-router.env")} and restart jev-codex\n`,
+    );
+  }
+
+  const childArgs = [...command.prefix, ...args];
+  const child = spawn(
+    command.file,
+    command.shell ? childArgs.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg)) : childArgs,
+    { stdio: "inherit", shell: command.shell, env: process.env },
+  );
+  child.on("error", (err) => {
+    close();
+    process.stderr.write(`[jev] could not start Codex: ${err.message}\n`);
+    process.exitCode = 1;
+  });
+  child.on("exit", (code, signal) => {
+    close();
+    process.exitCode = signal ? 1 : (code ?? 0);
+  });
+}
