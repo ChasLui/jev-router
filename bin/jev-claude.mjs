@@ -66,9 +66,13 @@ function statusLineArgs() {
   return ["--settings", file];
 }
 
-// Home first, then cwd, so a project-local .env wins over the user-level one. The home file
-// is what makes a globally installed `jev-claude` work from any directory.
-for (const file of [join(homedir(), ".jev-claude.env"), join(process.cwd(), ".env")]) {
+// Existing environment variables win, followed by project-local, shared user-level, then
+// the legacy Claude-specific file.
+for (const file of [
+  join(process.cwd(), ".env"),
+  join(homedir(), ".jev-router.env"),
+  join(homedir(), ".jev-claude.env"),
+]) {
   try {
     process.loadEnvFile(file);
   } catch {
