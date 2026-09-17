@@ -101,6 +101,27 @@ The report is rendered locally from the exact prompt, System One request, and Sy
 response saved when routing occurred. Recent decisions are retained per CLI session; invoking
 the explanation skill does not ask Jev to score the prompt again.
 
+### Explanation data location
+
+Both `jev-claude` and `jev-codex` keep up to 20 recent routing exchanges in one JSON file per
+CLI session under Node.js's operating-system temporary directory:
+
+| Platform | Default location |
+| --- | --- |
+| Windows | `%TEMP%\jev-claude\<session-id>.json` |
+| macOS | `$TMPDIR/jev-claude/<session-id>.json` (normally under `/var/folders/.../T`) |
+| Ubuntu/Linux | `${TMPDIR:-/tmp}/jev-claude/<session-id>.json` |
+
+Print the exact directory selected on the current machine with:
+
+```bash
+node -e "console.log(require('node:path').join(require('node:os').tmpdir(), 'jev-claude'))"
+```
+
+Claude filenames use Claude Code's session UUID. Codex filenames use
+`codex-<jev-codex-process-id>.json`. These temporary files contain prompt text and Jev's exact
+request and response; the operating system may remove them during normal temporary-file cleanup.
+
 > Choosing a model with `Enter` can save it as Claude Code's default. `jev-claude` restores
 > the previous default on exit so `jev-auto` cannot break plain `claude`.
 
