@@ -70,8 +70,9 @@ Claude Code otherwise remains unchanged, including its keybindings, tools, permi
 `/compact`, `/resume`, and session handling. An existing custom `statusLine` is preserved;
 set `JEV_NO_STATUSLINE=1` to disable Jev's status line.
 
-`/jev-explain` is bundled with the npm package and loaded automatically whenever you start
-Claude Code with `jev-claude`; no separate skill installation or project setup is needed.
+The explanation skill is bundled with the npm package and loaded automatically: run
+`/jev-explain` in `jev-claude`, or `$jev-explain` in `jev-codex`, to see the factors behind
+the last routing decision:
 
 ```text
 ┌─────────────────────────────────┐
@@ -105,6 +106,9 @@ Each fresh decision appears as Codex commentary:
 ```text
 [Jev] routed this turn to gpt-5.6-sol (jev, confidence 0.91).
 ```
+
+`jev-codex` installs or refreshes the packaged `$jev-explain` skill when it starts, so it is
+available from any repository without separate setup.
 
 Codex's footer shows `jev-router` because it displays the selected picker entry,
 not the model chosen behind that provider. If Jev is unavailable, the commentary names the

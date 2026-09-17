@@ -6,6 +6,7 @@ import { availableTiers } from "./config.mjs";
 import { askJev } from "./router.mjs";
 import { decide } from "./policy.mjs";
 import { log } from "./log.mjs";
+import { writeStatus } from "./status.mjs";
 
 const CHATGPT_BASE_URL = "https://chatgpt.com/backend-api/codex";
 const API_BASE_URL = "https://api.openai.com/v1";
@@ -129,6 +130,7 @@ export async function startCodexProxy({
   chatgptBaseURL = CHATGPT_BASE_URL,
   apiBaseURL = API_BASE_URL,
   route = askJev,
+  statusId = "",
 } = {}) {
   const states = new Map();
   const models = new Map();
@@ -149,18 +151,29 @@ export async function startCodexProxy({
             const key = codexConversationKey(body);
             const current = states.get(key) ?? "sonnet";
             const prompt = codexNewTurnPrompt(body);
+            const explaining = prompt?.includes("<jev-explain>") || /^\$jev-explain\b/i.test(prompt ?? "");
             let tier = current;
-            if (prompt) {
+            if (prompt && !explaining) {
               const enabled = availableTiers().filter((name) => models.size === 0 || models.has(codexModelOf(name)));
               const contextTokens = Math.round(JSON.stringify(body.input).length / 4);
               const jev = await route({ prompt, current, contextTokens, available: enabled });
               const decision = decide({ prompt, jev, current, available: enabled, contextTokens });
               tier = decision.tier;
               states.set(key, tier);
-              routing = { tier, confidence: jev?.confidence ?? null, reason: decision.reason };
+              routing = {
+                tier,
+                confidence: jev?.confidence ?? null,
+                metrics: jev?.metrics ?? null,
+                reason: decision.reason,
+              };
+              writeStatus(statusId, routing);
               debug(`${key} ${current} -> ${tier} (${decision.reason}) | ${prompt.slice(0, 60)}`);
             }
             applyCodexTier(body, tier, models);
+          } else {
+            const prompt = codexNewTurnPrompt(body);
+            const explaining = prompt?.includes("<jev-explain>") || /^\$jev-explain\b/i.test(prompt ?? "");
+            if (prompt && !explaining) writeStatus(statusId, { manual: true, at: Date.now() });
           }
           out = Buffer.from(JSON.stringify(body));
         } catch (err) {

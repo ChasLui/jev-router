@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   addJevModel,
   applyCodexTier,
@@ -10,7 +13,8 @@ import {
   startCodexProxy,
   upstreamFor,
 } from "../src/codex-proxy.mjs";
-import { codexArgs } from "../src/codex-cli.mjs";
+import { codexArgs, installCodexSkill } from "../src/codex-cli.mjs";
+import { readStatus } from "../src/status.mjs";
 
 test("Codex uses a temporary authenticated Jev provider", () => {
   const args = codexArgs("http://127.0.0.1:1234", ["--sandbox", "read-only"]);
@@ -19,6 +23,14 @@ test("Codex uses a temporary authenticated Jev provider", () => {
   assert(args.includes("model_providers.jev.requires_openai_auth=true"));
   assert.deepEqual(args.slice(-2), ["--sandbox", "read-only"]);
   assert.equal(codexArgs("http://127.0.0.1:1234", ["--model", "gpt-5.6-sol"]).filter((a) => a === "--model").length, 1);
+});
+
+test("installs the bundled explanation skill for Codex", (t) => {
+  const home = mkdtempSync(join(tmpdir(), "jev-codex-skill-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const target = installCodexSkill(home);
+  assert.match(target, /jev-router-explain[\\/]SKILL\.md$/);
+  assert.match(readFileSync(target, "utf8"), /name: jev-explain/);
 });
 
 test("reads only fresh Codex user turns", () => {
@@ -134,10 +146,25 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
   await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
   t.after(() => upstream.close());
   const upstreamURL = `http://127.0.0.1:${upstream.address().port}`;
+  const statusId = `codex-test-${process.pid}`;
+  let routeCalls = 0;
   const { port, close } = await startCodexProxy({
     chatgptBaseURL: `${upstreamURL}/backend-api/codex`,
     apiBaseURL: `${upstreamURL}/v1`,
-    route: async () => ({ choice: "opus", confidence: 0.91 }),
+    route: async () => {
+      routeCalls++;
+      return {
+        choice: "opus",
+        confidence: 0.91,
+        metrics: {
+          taskComplexity: 0.82,
+          reasoningRequired: 0.91,
+          toolComplexity: 0.64,
+          contextSize: 0.31,
+        },
+      };
+    },
+    statusId,
   });
   t.after(close);
   const headers = { authorization: "Bearer subscription-token", "chatgpt-account-id": "acct" };
@@ -150,6 +177,7 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
     headers: { ...headers, "content-type": "application/json" },
     body: JSON.stringify({
       model: "jev-router",
+      prompt_cache_key: "main",
       input: [
         { type: "additional_tools", role: "developer", tools: [{}] },
         { role: "user", content: [{ type: "input_text", text: "debug this race" }] },
@@ -160,6 +188,21 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
   assert.equal(seen[0].authorization, "Bearer subscription-token");
   assert.equal(seen[0].account, "acct");
   assert.equal(seen[1].body.model, "gpt-5.6-sol");
+  assert.equal(readStatus(statusId).tier, "opus");
+  assert.equal(readStatus(statusId).metrics.reasoningRequired, 0.91);
   assert(response.indexOf("response.created") < response.indexOf("[Jev] routed this turn"));
   assert(response.indexOf("[Jev] routed this turn") < response.indexOf("response.completed"));
+
+  await fetch(`http://127.0.0.1:${port}/responses`, {
+    method: "POST",
+    headers: { ...headers, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "jev-router",
+      prompt_cache_key: "main",
+      input: [{ role: "user", content: [{ type: "input_text", text: "$jev-explain" }] }],
+    }),
+  });
+  assert.equal(routeCalls, 1);
+  assert.equal(seen[2].body.model, "gpt-5.6-sol");
+  assert.equal(readStatus(statusId).metrics.reasoningRequired, 0.91);
 });
