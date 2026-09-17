@@ -75,7 +75,9 @@ set `JEV_NO_STATUSLINE=1` to disable Jev's status line.
 
 ## OpenAI Codex interface
 
-`jev-codex` launches Codex with a temporary **Jev Router** provider and selects `jev-auto`.
+![Jev Router in the OpenAI Codex model picker](docs/codex-model-picker.png)
+
+`jev-codex` launches Codex with a temporary **Jev Router** provider and selects `jev-router`.
 The native `/model` picker still contains the models available to the account. Selecting a
 concrete model pauses routing; selecting **Jev Router** resumes it.
 
@@ -85,7 +87,7 @@ Each fresh decision appears as Codex commentary:
 [Jev] routed this turn to gpt-5.6-sol (jev, confidence 0.91).
 ```
 
-Codex's footer continues to show `jev-auto` because it displays the selected picker entry,
+Codex's footer shows `jev-router` because it displays the selected picker entry,
 not the model chosen behind that provider. If Jev is unavailable, the commentary names the
 fallback model and explains how to set `JEV_API_KEY`.
 
@@ -105,7 +107,8 @@ you -> OpenAI Codex -> jev-codex proxy -> OpenAI
 ```
 
 Claude Code uses `ANTHROPIC_BASE_URL`; Codex uses a temporary custom provider with
-`requires_openai_auth=true`. The `jev-auto` sentinel tells either proxy to route the turn.
+`requires_openai_auth=true`. Claude uses `jev-auto` and Codex uses `jev-router` as the
+routing sentinel.
 Any concrete model selected by the user passes through unchanged.
 
 ## Routing policy

@@ -2,8 +2,7 @@ import { spawn } from "node:child_process";
 import { accessSync, constants } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { AUTO_MODEL } from "./config.mjs";
-import { startCodexProxy } from "./codex-proxy.mjs";
+import { CODEX_AUTO_MODEL, startCodexProxy } from "./codex-proxy.mjs";
 
 const PROVIDER = "jev";
 
@@ -45,7 +44,7 @@ export function resolveCodex() {
 export const codexArgs = (baseURL, args) => [
   ...(args.some((arg) => arg === "--model" || arg === "-m" || arg.startsWith("--model="))
     ? []
-    : ["--model", AUTO_MODEL]),
+    : ["--model", CODEX_AUTO_MODEL]),
   "--config",
   `model_provider="${PROVIDER}"`,
   "--config",

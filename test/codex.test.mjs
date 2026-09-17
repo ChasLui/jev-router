@@ -14,7 +14,7 @@ import { codexArgs } from "../src/codex-cli.mjs";
 
 test("Codex uses a temporary authenticated Jev provider", () => {
   const args = codexArgs("http://127.0.0.1:1234", ["--sandbox", "read-only"]);
-  assert.deepEqual(args.slice(0, 2), ["--model", "jev-auto"]);
+  assert.deepEqual(args.slice(0, 2), ["--model", "jev-router"]);
   assert(args.includes('model_provider="jev"'));
   assert(args.includes("model_providers.jev.requires_openai_auth=true"));
   assert.deepEqual(args.slice(-2), ["--sandbox", "read-only"]);
@@ -52,7 +52,7 @@ test("adds Jev Router to the native model catalog", () => {
       priority: 2,
     }],
   });
-  assert.equal(catalog.models[0].slug, "jev-auto");
+  assert.equal(catalog.models[0].slug, "jev-router");
   assert.equal(catalog.models[0].display_name, "Jev Router");
   assert.equal(catalog.models[1].slug, "gpt-5.6-terra");
 });
@@ -67,7 +67,7 @@ test("routes subscription auth to ChatGPT and API keys to the public API", () =>
 });
 
 test("maps tiers and clamps unsupported reasoning effort", () => {
-  const body = { model: "jev-auto", reasoning: { effort: "max" } };
+  const body = { model: "jev-router", reasoning: { effort: "max" } };
   const models = new Map([[
     "gpt-5.6-luna",
     { default_reasoning_level: "medium", supported_reasoning_levels: [{ effort: "medium" }] },
@@ -143,13 +143,13 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
   const headers = { authorization: "Bearer subscription-token", "chatgpt-account-id": "acct" };
 
   const catalog = await fetch(`http://127.0.0.1:${port}/models?client_version=1`, { headers }).then((r) => r.json());
-  assert.equal(catalog.models[0].slug, "jev-auto");
+  assert.equal(catalog.models[0].slug, "jev-router");
 
   const response = await fetch(`http://127.0.0.1:${port}/responses`, {
     method: "POST",
     headers: { ...headers, "content-type": "application/json" },
     body: JSON.stringify({
-      model: "jev-auto",
+      model: "jev-router",
       input: [
         { type: "additional_tools", role: "developer", tools: [{}] },
         { role: "user", content: [{ type: "input_text", text: "debug this race" }] },

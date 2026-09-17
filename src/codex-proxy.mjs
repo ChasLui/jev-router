@@ -2,13 +2,14 @@ import http from "node:http";
 import https from "node:https";
 import { createHash, randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { AUTO_MODEL, availableTiers } from "./config.mjs";
+import { availableTiers } from "./config.mjs";
 import { askJev } from "./router.mjs";
 import { decide } from "./policy.mjs";
 import { log } from "./log.mjs";
 
 const CHATGPT_BASE_URL = "https://chatgpt.com/backend-api/codex";
 const API_BASE_URL = "https://api.openai.com/v1";
+export const CODEX_AUTO_MODEL = "jev-router";
 const DEFAULT_MODELS = {
   haiku: "gpt-5.6-luna",
   sonnet: "gpt-5.6-terra",
@@ -60,7 +61,7 @@ export function codexConversationKey(body) {
 }
 
 export function addJevModel(catalog) {
-  if (!Array.isArray(catalog?.models) || catalog.models.some((model) => model.slug === AUTO_MODEL)) {
+  if (!Array.isArray(catalog?.models) || catalog.models.some((model) => model.slug === CODEX_AUTO_MODEL)) {
     return catalog;
   }
   const template =
@@ -70,7 +71,7 @@ export function addJevModel(catalog) {
   if (!template) return catalog;
   catalog.models.unshift({
     ...template,
-    slug: AUTO_MODEL,
+    slug: CODEX_AUTO_MODEL,
     display_name: "Jev Router",
     description: "Jev picks the cheapest model that can complete each turn.",
     visibility: "list",
@@ -144,7 +145,7 @@ export async function startCodexProxy({
           if (process.env.JEV_DUMP) {
             writeFileSync(`${process.env.JEV_DUMP}.${Date.now()}.json`, JSON.stringify(body, null, 2));
           }
-          if (body.model === AUTO_MODEL) {
+          if (body.model === CODEX_AUTO_MODEL) {
             const key = codexConversationKey(body);
             const current = states.get(key) ?? "sonnet";
             const prompt = codexNewTurnPrompt(body);
