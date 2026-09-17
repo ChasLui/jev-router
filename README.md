@@ -160,6 +160,22 @@ Opus.
   around, `JEV_DUMP` is how you find out.
 - Developed and tested on Windows against Claude Code v2.1.101.
 
+## Contributing
+
+Issues and pull requests are welcome. Use [Issues](https://github.com/gargpratyush/jev-router/issues)
+to report bugs, request improvements, or ask questions. Please include the relevant Claude Code
+version, reproduction steps, expected behavior, and any useful logs with secrets removed.
+
+For a pull request:
+
+1. Fork the repository and create a focused branch from `master`.
+2. Make the smallest change that solves the problem.
+3. Run `npm test` and include tests for non-trivial behavior changes.
+4. Explain the problem, the approach, and validation in the pull request description.
+
+Please do not commit API keys or other secrets. All contributions require review, and only the
+repository owner can merge pull requests.
+
 ## License
 
 MIT
