@@ -20,7 +20,7 @@ export function readSavedModel(file = USER_SETTINGS) {
 
 /**
  * Puts `previous` back if the settings file now holds the sentinel. Selecting a row with
- * Enter makes Claude Code save it as the default for new sessions, and a saved "jev-auto"
+ * Enter makes Claude Code save it as the default for new sessions, and a saved "jev-router"
  * would break plain `claude`, which has no proxy to resolve it. Anything other than an exact
  * sentinel match is left alone, so a real model chosen during the session survives.
  */

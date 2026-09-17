@@ -4,7 +4,7 @@ import { decide, detectOverride } from "../src/policy.mjs";
 
 const ALL = ["haiku", "sonnet", "opus", "fable"];
 const sure = (choice) => ({ choice, confidence: 0.95 });
-const unsure = (choice) => ({ choice, confidence: 0.3 });
+const unsure = (choice) => ({ choice, confidence: 0.2 });
 const base = { prompt: "refactor the parser", current: "sonnet", available: ALL, contextTokens: 0 };
 
 test("follows a confident Jev answer", () => {

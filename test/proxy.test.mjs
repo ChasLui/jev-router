@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { sanitizeSchema, newTurnPrompt, applyTier, conversationKey, sessionOf } from "../src/proxy.mjs";
 
 test("only the sentinel model is routed", () => {
-  assert.equal(isAuto("jev-auto"), true);
+  assert.equal(isAuto("jev-router"), true);
   assert.equal(isAuto("claude-opus-4-6"), false, "a model the user picked is theirs");
   assert.equal(isAuto("claude-haiku-4-5-20251001"), false, "internal Haiku calls pass through");
   assert.equal(isAuto(undefined), false);
 });
 
 test("the sentinel is not mistaken for a real tier", () => {
-  assert.equal(tierOf("jev-auto"), null);
+  assert.equal(tierOf("jev-router"), null);
 });
 import { tierOf, isAuto } from "../src/config.mjs";
 import { writeStatus, readStatus } from "../src/status.mjs";
