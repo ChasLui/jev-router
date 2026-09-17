@@ -12,7 +12,7 @@ import { LOG_FILE } from "../src/log.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Registers "Jev Auto" as an extra row in Claude Code's /model picker and starts the session
+ * Registers "Jev Router" as an extra row in Claude Code's /model picker and starts the session
  * on it. Claude Code sends the id verbatim because it does not validate model names behind a
  * custom base URL, which is what lets the proxy tell "route this" from "the user picked a
  * model". Capabilities are declared so Claude Code still composes thinking and effort for
@@ -21,7 +21,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 function autoModelEnv() {
   const env = {
     ANTHROPIC_CUSTOM_MODEL_OPTION: AUTO_MODEL,
-    ANTHROPIC_CUSTOM_MODEL_OPTION_NAME: "Jev Auto",
+    ANTHROPIC_CUSTOM_MODEL_OPTION_NAME: "Jev Router",
     ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION: "Route each turn to the cheapest model that can do it",
     ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES:
       "thinking,adaptive_thinking,interleaved_thinking,effort,max_effort",
