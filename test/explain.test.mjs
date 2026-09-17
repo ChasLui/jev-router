@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { formatExplanation } from "../src/explain.mjs";
 
 test("formats the last routing decision", () => {
@@ -35,4 +36,9 @@ test("shows the concrete provider model when available", () => {
     formatExplanation({ tier: "haiku", model: "gpt-5.6-luna", confidence: 0.99 }),
     /Selected model: GPT-5\.6-LUNA/,
   );
+});
+
+test("Claude skill pre-approves its read-only explanation command", () => {
+  const skill = readFileSync(new URL("../.claude/skills/jev-explain/SKILL.md", import.meta.url), "utf8");
+  assert.match(skill, /^allowed-tools: Bash\(node \*\)$/m);
 });
