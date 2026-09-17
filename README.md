@@ -17,6 +17,16 @@ Requires Node.js 20.12+ and at least one supported CLI:
 [Claude Code](https://code.claude.com/docs/en/setup) or
 [OpenAI Codex](https://developers.openai.com/codex/cli).
 
+### 1. npm package
+
+```bash
+npm install -g jev-router
+echo "JEV_API_KEY=..." > ~/.jev-claude.env
+jev-claude
+```
+
+### 2. Local repository
+
 ```bash
 git clone https://github.com/gargpratyush/jev-router.git
 cd jev-router
@@ -49,8 +59,8 @@ jev-codex resume --last
 jev-codex exec "fix the failing test"
 ```
 
-The npm package is not published yet. `npm link` installs both commands from the cloned
-repository. Without it, run `node bin/jev-claude.mjs` or `node bin/jev-codex.mjs`.
+For a local checkout, `npm link` installs both commands. Without it, run
+`node bin/jev-claude.mjs` or `node bin/jev-codex.mjs`.
 
 ## Claude Code interface
 

@@ -1,14 +1,21 @@
 {
   "name": "jev-router",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Runs coding CLIs and routes each turn to the cheapest sufficient model using TypeSafe Jev",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gargpratyush/jev-router.git"
+  },
+  "homepage": "https://github.com/gargpratyush/jev-router#readme",
+  "bugs": "https://github.com/gargpratyush/jev-router/issues",
   "bin": {
     "jev-claude": "bin/jev-claude.mjs",
     "jev-codex": "bin/jev-codex.mjs"
   },
   "scripts": {
-    "test": "node --test \"test/**/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "prepublishOnly": "npm test"
   },
   "files": [
     "bin",
@@ -25,6 +32,10 @@
   ],
   "engines": {
     "node": ">=20.12"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "license": "MIT",
   "dependencies": {
