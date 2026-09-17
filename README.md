@@ -206,10 +206,11 @@ Codex version, reproduction steps, expected behavior, and useful logs with secre
 
 For a pull request:
 
-1. Fork the repository and create a focused branch from `master`.
-2. Make the smallest change that solves the problem.
-3. Run `npm test` and include tests for non-trivial behavior changes.
-4. Explain the problem, the approach, and validation in the pull request description.
+1. Open an issue first - all PRs by contributors should be linked with an approved issue. Explain the problem and validation in the issue description.
+2. Fork the repository and create a focused branch from `master`.
+3. Make the smallest change that solves the problem.
+4. Run `npm test` and include tests for non-trivial behavior changes.
+5. Claude/Copilot/Codex shall not be the contributors. 
 
 Please do not commit API keys or other secrets. All contributions require review, and only the
 repository owner can merge pull requests.
