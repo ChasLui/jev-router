@@ -2,13 +2,21 @@ import http from "node:http";
 import https from "node:https";
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { tierOf, idOf, availableTiers, tierSpec, isAuto } from "./config.mjs";
+import {
+  TIERS,
+  tierOf,
+  idOf,
+  availableTiers,
+  tierSpec,
+  isAuto,
+  shouldUseExactModel,
+} from "./config.mjs";
 import { askJev } from "./router.mjs";
 import { decide } from "./policy.mjs";
 import { log } from "./log.mjs";
 import { writeDecision, writeStatus } from "./status.mjs";
 
-const UPSTREAM = "api.anthropic.com";
+const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
 const debug = (line) => process.env.JEV_DEBUG && log(line);
 
 /**
@@ -68,10 +76,10 @@ export function newTurnPrompt(body) {
  * composes the body for whatever model it thinks it is talking to, so downgrading to Haiku
  * while leaving `thinking: {type:"adaptive"}` in place is a hard 400.
  */
-export function applyTier(body, tierName) {
+export function applyTier(body, tierName, model = idOf(tierName)) {
   const tier = tierSpec(tierName);
   if (!tier) return body;
-  body.model = tier.id;
+  body.model = model;
   if (!tier.thinking) {
     delete body.thinking;
     // A context-management strategy that prunes thinking blocks is itself rejected once
@@ -88,6 +96,26 @@ export function applyTier(body, tierName) {
   }
   return body;
 }
+
+/** Exact Claude models reported by the account, newest first; static ids are the cold-start fallback. */
+export function claudeModels(catalog = []) {
+  const models = catalog
+    .filter((model) => tierOf(model?.id))
+    .map((model) => ({
+      id: model.id,
+      tier: tierOf(model.id),
+      description: [
+        model.display_name,
+        model.created_at && `released ${model.created_at.slice(0, 10)}`,
+        model.max_input_tokens && `${model.max_input_tokens} input tokens`,
+      ].filter(Boolean).join("; "),
+    }));
+  return models.length
+    ? models
+    : TIERS.map((tier) => ({ id: tier.id, tier: tier.name, description: tier.id }));
+}
+
+const modelForTier = (models, tier) => models.find((model) => model.tier === tier)?.id ?? idOf(tier);
 
 /**
  * Identifies the conversation a request belongs to. Claude Code runs sub-agents through the
@@ -139,10 +167,11 @@ export function observeModel(state, current) {
 }
 
 
-export async function startProxy() {
+export async function startProxy({ upstreamURL = ANTHROPIC_BASE_URL, route = askJev } = {}) {
   // Tier routed for each conversation's turn in flight, reused by its follow-up requests and
   // by the cache-rebuild guard, which needs to know what the prompt cache was built on.
   const convos = new Map();
+  const catalog = new Map();
   const stateFor = (key) => {
     let s = convos.get(key);
     if (!s) {
@@ -189,13 +218,33 @@ export async function startProxy() {
             const explaining = prompt?.includes("<jev-explain>");
             let fresh = null;
             if (prompt && !explaining) {
-              const available = availableTiers();
+              const models = claudeModels([...catalog.values()]).filter((model) =>
+                availableTiers().includes(model.tier),
+              );
+              const available = [...new Set(models.map((model) => model.tier))];
+              const currentModel = state.model ?? modelForTier(models, current);
               const contextTokens = Math.round(JSON.stringify(body.messages).length / 4);
-              const jev = await askJev({ prompt, current, contextTokens, available });
-              const { tier, reason } = decide({ prompt, jev, current, available, contextTokens });
+              const jev = await route({ prompt, current: currentModel, contextTokens, models });
+              const chosen = models.find((model) => model.id === jev?.choice);
+              const tierAnswer = jev && { ...jev, choice: chosen?.tier };
+              const { tier, reason } = decide({
+                prompt,
+                jev: tierAnswer,
+                current,
+                available,
+                contextTokens,
+              });
+              const model =
+                shouldUseExactModel(reason, chosen?.tier, tier)
+                  ? chosen.id
+                  : tier === current
+                    ? currentModel
+                    : modelForTier(models, tier);
               state.tier = tier;
+              state.model = model;
               fresh = {
                 prompt,
+                model,
                 confidence: jev?.confidence ?? null,
                 metrics: jev?.metrics ?? null,
                 reason,
@@ -209,8 +258,9 @@ export async function startProxy() {
             // The sentinel is not a real model, so every routed request must be rewritten,
             // including follow-ups that reuse the tier chosen for the turn.
             const tier = state.tier ?? current;
-            debug(`${key} rewrite ${body.model} -> ${idOf(tier)}`);
-            applyTier(body, tier);
+            const model = state.model ?? idOf(tier);
+            debug(`${key} rewrite ${body.model} -> ${model}`);
+            applyTier(body, tier, model);
             // Publish what went out. Claude Code's UI shows the row you picked, not the tier
             // it resolved to, so the status line is the only place this is visible.
             if (fresh && !explaining) {
@@ -223,14 +273,45 @@ export async function startProxy() {
         }
       }
 
-      const headers = { ...req.headers, host: UPSTREAM };
+      const target = new URL(upstreamURL);
+      const transport = target.protocol === "http:" ? http : https;
+      const headers = { ...req.headers, host: target.host };
       delete headers["content-length"];
+      if (req.method === "GET" && /^\/v1\/models(?:\?|$)/.test(req.url ?? "")) {
+        delete headers["accept-encoding"];
+      }
       // Under JEV_DEBUG, ask for an uncompressed stream so the model the API reports can be
       // read back out of it. Not worth the bandwidth cost in normal operation.
       if (process.env.JEV_DEBUG) delete headers["accept-encoding"];
-      const upstream = https.request(
-        { hostname: UPSTREAM, path: req.url, method: req.method, headers },
+      const upstream = transport.request(
+        {
+          hostname: target.hostname,
+          port: target.port || undefined,
+          path: `${target.pathname.replace(/\/$/, "")}${req.url}`,
+          method: req.method,
+          headers,
+        },
         (up) => {
+          const isModels = req.method === "GET" && /^\/v1\/models(?:\?|$)/.test(req.url ?? "");
+          if (isModels) {
+            const chunks = [];
+            up.on("data", (chunk) => chunks.push(chunk));
+            up.on("end", () => {
+              const data = Buffer.concat(chunks);
+              try {
+                for (const model of JSON.parse(data.toString()).data ?? []) {
+                  if (tierOf(model?.id)) catalog.set(model.id, model);
+                }
+              } catch (err) {
+                debug(`could not read Claude model catalog: ${err.message}`);
+              }
+              const headers = { ...up.headers };
+              delete headers["content-length"];
+              res.writeHead(up.statusCode, headers);
+              res.end(data);
+            });
+            return;
+          }
           res.writeHead(up.statusCode, up.headers);
           // Report the model the API itself says it used, so the routing can be confirmed
           // from the wire rather than trusted from our own decision log. Claude Code's UI

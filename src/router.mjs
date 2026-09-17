@@ -1,5 +1,11 @@
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { COMPLEXITY_MAX_SCORE, CONTEXT_WINDOW_TOKENS, QUESTIONS, THRESHOLDS } from "./config.mjs";
+import {
+  COMPLEXITY_MAX_SCORE,
+  CONTEXT_WINDOW_TOKENS,
+  QUESTIONS,
+  questionForModels,
+  THRESHOLDS,
+} from "./config.mjs";
 import { log } from "./log.mjs";
 
 // The SDK's defaults (10s per attempt, 2 retries, no total budget) are far too slow for a
@@ -23,7 +29,8 @@ function getClient() {
  *
  * @returns {Promise<?{choice: string, confidence: number, probabilities: object, metrics: object, ms: number}>}
  */
-export async function askJev({ prompt, current, contextTokens, available }) {
+export async function askJev({ prompt, current, contextTokens, models }) {
+  if (!models?.length) return null;
   const started = Date.now();
   const abort = new AbortController();
   const deadline = setTimeout(() => abort.abort(), THRESHOLDS.jevDeadlineMs);
@@ -31,13 +38,13 @@ export async function askJev({ prompt, current, contextTokens, available }) {
     state: {
       request: prompt,
       session: { current_model: current, context_tokens: contextTokens },
-      environment: { available_models: available },
+      environment: { available_models: models.map((model) => model.id) },
     },
-    questions: QUESTIONS,
+    questions: { ...QUESTIONS, model: questionForModels(models) },
   };
   try {
     const result = await getClient().systemOne(request, { signal: abort.signal });
-    const { model_tier: answer, task_complexity, reasoning_required, tool_complexity } = result.answers;
+    const { model: answer, task_complexity, reasoning_required, tool_complexity } = result.answers;
     return {
       ...answer,
       request,

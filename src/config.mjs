@@ -110,48 +110,46 @@ export const QUESTIONS = {
     "How complex is the tool use required, from no tools to many coordinated or stateful operations?",
     COMPLEXITY_SCALE,
   ),
-  model_tier: choice(
-    [
-      "Pick the cheapest model tier that can fully complete this coding request in one pass, without a retry on a stronger model.",
-      "Judge the reasoning the request demands, not the length of the reply it asks for. A request that wants a one-line answer to a hard debugging or design question still needs a strong model; a request for a long but mechanical edit does not.",
-    ],
-    {
-      haiku: {
-        what: "Trivial, mechanical, or purely factual work.",
-        signals: [
-          "Rename a symbol, fix a typo, reformat, add a comment",
-          "Answer a short factual question about a known file",
-          "Run one obvious command and report the output",
-        ],
-        not_for: "Anything requiring design judgement or multi-file reasoning.",
-      },
-      sonnet: {
-        what: "Ordinary day-to-day engineering with a clear, bounded shape.",
-        signals: [
-          "Implement a well-specified function, endpoint, or component",
-          "Write or fix tests for existing behaviour",
-          "Localised bug fix where the cause is already understood",
-        ],
-        not_for: "Open-ended architecture, subtle concurrency, or deep unknown-cause debugging.",
-      },
-      opus: {
-        what: "Hard reasoning, ambiguity, or high blast radius.",
-        signals: [
-          "Debug a failure whose cause is unknown",
-          "Design or refactor across several modules",
-          "Security, auth, concurrency, data-migration, or money-handling logic",
-        ],
-        not_for: "Work that a competent mid-level engineer would finish without thinking hard.",
-      },
-      fable: {
-        what: "Very large or very long-running tasks that exceed the others' practical reach.",
-        signals: [
-          "Whole-repo migration or framework upgrade",
-          "Task requiring an unusually large amount of context to be held at once",
-          "Long autonomous multi-hour execution",
-        ],
-        not_for: "Anything a single focused session on Opus would finish. Costs extra usage credits.",
-      },
-    },
-  ),
 };
+
+const GUIDANCE = {
+  haiku: {
+    what: "Trivial, mechanical, or purely factual work.",
+    signals: ["Rename, reformat, comment, or run one obvious command"],
+    not_for: "Design judgement or multi-file reasoning.",
+  },
+  sonnet: {
+    what: "Ordinary day-to-day engineering with a clear, bounded shape.",
+    signals: ["Implement a specified function, test existing behaviour, or fix an understood local bug"],
+    not_for: "Open-ended architecture, subtle concurrency, or unknown-cause debugging.",
+  },
+  opus: {
+    what: "Hard reasoning, ambiguity, or high blast radius.",
+    signals: ["Unknown-cause debugging, cross-module design, security, auth, concurrency, or migrations"],
+    not_for: "Routine work with a clear implementation.",
+  },
+  fable: {
+    what: "Very large or long-running work beyond a normal focused session.",
+    signals: ["Whole-repo migration, unusually large context, or multi-hour autonomous execution"],
+    not_for: "Anything a strong model can finish in one focused session.",
+  },
+};
+
+/** Build a Jev choice from the exact models available to this account and CLI. */
+export const questionForModels = (models) =>
+  choice(
+    [
+      "Pick the cheapest exact model that can fully complete this coding request in one pass, without retrying on a stronger model.",
+      "Treat different model versions as separate choices. Judge required reasoning, not requested reply length.",
+    ],
+    Object.fromEntries(
+      models.map(({ id, tier, description }) => [
+        id,
+        { model: description ?? id, ...GUIDANCE[tier] },
+      ]),
+    ),
+  );
+
+/** Whether policy accepted Jev's exact model, including a version change within one tier. */
+export const shouldUseExactModel = (reason, chosenTier, finalTier) =>
+  (reason === "jev" || reason === "jev/no-change") && chosenTier === finalTier;

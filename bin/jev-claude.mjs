@@ -125,6 +125,7 @@ if (!claude) {
 if (process.env.JEV_API_KEY || process.env.TYPESAFE_API_KEY) {
   const { port, close } = await startProxy();
   env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
+  env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
   Object.assign(env, autoModelEnv());
   process.on("exit", () => {
     close();

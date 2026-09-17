@@ -216,6 +216,9 @@ Existing environment variables have highest precedence, followed by `.env` in th
 directory, `~/.jev-router.env`, and the legacy `~/.jev-claude.env`.
 
 Tier definitions, Jev's question, confidence thresholds, and timeouts live in `src/config.mjs`.
+Both launchers send Jev the exact models in the signed-in account's native catalog, so model
+versions such as `claude-opus-4-8` and `claude-opus-5` remain separate choices. Static model
+ids are used only until the CLI fetches its catalog.
 
 ## Compatibility notes
 
