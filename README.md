@@ -11,8 +11,6 @@ interface, tools, sessions, permissions, and authentication.
 
 Both commands launch the real upstream CLI. Jev only chooses the model for a fresh user turn.
 
-![Jev Router in the Claude Code model picker](docs/model-picker.png)
-
 ## Quick start
 
 Requires Node.js 20.12+ and at least one supported CLI:
@@ -55,6 +53,8 @@ The npm package is not published yet. `npm link` installs both commands from the
 repository. Without it, run `node bin/jev-claude.mjs` or `node bin/jev-codex.mjs`.
 
 ## Claude Code interface
+
+![Jev Router in the Claude Code model picker](docs/model-picker.png)
 
 `jev-claude` launches Claude Code with **Jev Router** selected in `/model`. Selecting another
 model pauses routing; selecting **Jev Router** resumes it.
