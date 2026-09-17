@@ -70,6 +70,25 @@ Claude Code otherwise remains unchanged, including its keybindings, tools, permi
 `/compact`, `/resume`, and session handling. An existing custom `statusLine` is preserved;
 set `JEV_NO_STATUSLINE=1` to disable Jev's status line.
 
+`/jev-explain` is bundled with the npm package and loaded automatically whenever you start
+Claude Code with `jev-claude`; no separate skill installation or project setup is needed.
+
+```text
+┌─────────────────────────────────┐
+│ Jev Router                      │
+│                                 │
+│ Task complexity     0.82        │
+│ Reasoning required  0.91        │
+│ Tool complexity     0.64        │
+│ Context size        0.31        │
+│                                 │
+│ Selected model: SONNET          │
+│                                 │
+│ Confidence: 94%                 │
+│ Decision: Jev recommendation    │
+└─────────────────────────────────┘
+```
+
 > Choosing a model with `Enter` can save it as Claude Code's default. `jev-claude` restores
 > the previous default on exit so `jev-auto` cannot break plain `claude`.
 

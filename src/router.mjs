@@ -1,5 +1,5 @@
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { QUESTIONS, THRESHOLDS } from "./config.mjs";
+import { CONTEXT_WINDOW_TOKENS, QUESTIONS, THRESHOLDS } from "./config.mjs";
 import { log } from "./log.mjs";
 
 // The SDK's defaults (10s per attempt, 2 retries, no total budget) are far too slow for a
@@ -21,7 +21,7 @@ function getClient() {
  * Asks Jev which tier fits this prompt. Returns null on any failure, which the policy
  * layer reads as "keep the current model" — routing must never block a prompt.
  *
- * @returns {Promise<?{choice: string, confidence: number, probabilities: object, ms: number}>}
+ * @returns {Promise<?{choice: string, confidence: number, probabilities: object, metrics: object, ms: number}>}
  */
 export async function askJev({ prompt, current, contextTokens, available }) {
   const started = Date.now();
@@ -39,8 +39,17 @@ export async function askJev({ prompt, current, contextTokens, available }) {
       },
       { signal: abort.signal },
     );
-    const answer = result.answers.model_tier;
-    return { ...answer, ms: Date.now() - started };
+    const { model_tier: answer, task_complexity, reasoning_required, tool_complexity } = result.answers;
+    return {
+      ...answer,
+      metrics: {
+        taskComplexity: task_complexity.score / 10,
+        reasoningRequired: reasoning_required.score / 10,
+        toolComplexity: tool_complexity.score / 10,
+        contextSize: Math.min(contextTokens / CONTEXT_WINDOW_TOKENS, 1),
+      },
+      ms: Date.now() - started,
+    };
   } catch (err) {
     log(`routing failed, keeping ${current}: ${err.message}`);
     return null;

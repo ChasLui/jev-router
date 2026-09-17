@@ -186,14 +186,15 @@ export async function startProxy() {
             // What the prompt cache was built on, which is what a downgrade would discard.
             const current = state.tier ?? "sonnet";
             const prompt = newTurnPrompt(body);
+            const explaining = prompt?.includes("<jev-explain>");
             let fresh = null;
-            if (prompt) {
+            if (prompt && !explaining) {
               const available = availableTiers();
               const contextTokens = Math.round(JSON.stringify(body.messages).length / 4);
               const jev = await askJev({ prompt, current, contextTokens, available });
               const { tier, reason } = decide({ prompt, jev, current, available, contextTokens });
               state.tier = tier;
-              fresh = { confidence: jev?.confidence ?? null, reason };
+              fresh = { confidence: jev?.confidence ?? null, metrics: jev?.metrics ?? null, reason };
               debug(
                 `${key} ${jev ? `${jev.ms}ms p=${jev.confidence.toFixed(2)}` : "no-jev"} ` +
                   `${current} -> ${tier} (${reason}) ctx~${contextTokens} | ${prompt.slice(0, 60)}`,
@@ -206,7 +207,7 @@ export async function startProxy() {
             applyTier(body, tier);
             // Publish what went out. Claude Code's UI shows the row you picked, not the tier
             // it resolved to, so the status line is the only place this is visible.
-            writeStatus(sessionOf(body), { tier, ...fresh, at: Date.now() });
+            if (!explaining) writeStatus(sessionOf(body), { tier, ...fresh, at: Date.now() });
           }
           out = Buffer.from(JSON.stringify(body));
         } catch (err) {

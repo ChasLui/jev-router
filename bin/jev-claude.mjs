@@ -10,6 +10,7 @@ import { readSavedModel, restoreSavedModel } from "../src/settings.mjs";
 import { LOG_FILE } from "../src/log.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = dirname(HERE);
 
 /**
  * Registers "Jev Router" as an extra row in Claude Code's /model picker and starts the session
@@ -105,6 +106,7 @@ function resolveClaude() {
 }
 
 const args = process.argv.slice(2);
+args.push("--add-dir", ROOT);
 const env = { ...process.env };
 
 const claude = resolveClaude();
