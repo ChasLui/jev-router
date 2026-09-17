@@ -44,6 +44,12 @@ test("reads only fresh Codex user turns", () => {
   assert.equal(codexNewTurnPrompt(body), "Fix the bug");
   body.input.push({ type: "function_call_output", call_id: "1", output: "done" });
   assert.equal(codexNewTurnPrompt(body), null);
+  assert.equal(
+    codexNewTurnPrompt({
+      input: [{ role: "user", content: "Generate a concise, single-line task title" }],
+    }),
+    null,
+  );
 });
 
 test("keeps sub-agent routing state separate", () => {
@@ -189,9 +195,21 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
   assert.equal(seen[0].account, "acct");
   assert.equal(seen[1].body.model, "gpt-5.6-sol");
   assert.equal(readStatus(statusId).tier, "opus");
+  assert.equal(readStatus(statusId).model, "gpt-5.6-sol");
   assert.equal(readStatus(statusId).metrics.reasoningRequired, 0.91);
   assert(response.indexOf("response.created") < response.indexOf("[Jev] routed this turn"));
   assert(response.indexOf("[Jev] routed this turn") < response.indexOf("response.completed"));
+
+  await fetch(`http://127.0.0.1:${port}/responses`, {
+    method: "POST",
+    headers: { ...headers, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "jev-router",
+      input: [{ role: "user", content: "Generate a concise, single-line task title" }],
+    }),
+  });
+  assert.equal(routeCalls, 1);
+  assert.equal(readStatus(statusId).confidence, 0.91);
 
   await fetch(`http://127.0.0.1:${port}/responses`, {
     method: "POST",
@@ -203,6 +221,6 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
     }),
   });
   assert.equal(routeCalls, 1);
-  assert.equal(seen[2].body.model, "gpt-5.6-sol");
+  assert.equal(seen[3].body.model, "gpt-5.6-sol");
   assert.equal(readStatus(statusId).metrics.reasoningRequired, 0.91);
 });

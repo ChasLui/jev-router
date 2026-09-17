@@ -26,7 +26,7 @@ export function formatExplanation(status) {
     row(`Tool complexity     ${metric(m.toolComplexity)}`),
     row(`Context size        ${metric(m.contextSize)}`),
     row(),
-    row(`Selected model: ${(status.tier ?? "unknown").toUpperCase()}`),
+    row(`Selected model: ${(status.model ?? status.tier ?? "unknown").toUpperCase()}`),
     row(),
     row(`Confidence: ${status.confidence == null ? "n/a" : `${Math.round(status.confidence * 100)}%`}`),
     row(`Decision: ${decision(status.reason)}`),

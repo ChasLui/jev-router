@@ -44,6 +44,7 @@ const cleanPrompt = (text) =>
 /** User text that starts a new Codex turn, or null for tool continuations. */
 export function codexNewTurnPrompt(body) {
   if (!Array.isArray(body?.input)) return null;
+  if (!body.input.some((item) => item?.type === "additional_tools")) return null;
   for (const item of [...body.input].reverse()) {
     if (item?.type === "function_call_output" || item?.type === "custom_tool_call_output") return null;
     if (item?.role !== "user") continue;
@@ -162,6 +163,7 @@ export async function startCodexProxy({
               states.set(key, tier);
               routing = {
                 tier,
+                model: codexModelOf(tier),
                 confidence: jev?.confidence ?? null,
                 metrics: jev?.metrics ?? null,
                 reason: decision.reason,

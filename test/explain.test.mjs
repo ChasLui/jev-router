@@ -20,3 +20,10 @@ test("formats the last routing decision", () => {
   assert.match(output, /Confidence: 94%/);
   assert.match(output, /Decision: Jev recommendation/);
 });
+
+test("shows the concrete provider model when available", () => {
+  assert.match(
+    formatExplanation({ tier: "haiku", model: "gpt-5.6-luna", confidence: 0.99 }),
+    /Selected model: GPT-5\.6-LUNA/,
+  );
+});
