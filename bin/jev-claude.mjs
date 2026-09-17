@@ -25,6 +25,9 @@ function autoModelEnv() {
     ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION: "Route each turn to the cheapest model that can do it",
     ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES:
       "thinking,adaptive_thinking,interleaved_thinking,effort,max_effort",
+    // Some Claude Code versions validate the model client-side before it reaches the proxy;
+    // this defers to the API so "jev-auto" can pass through for rewriting.
+    CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
   };
   // ANTHROPIC_MODEL applies to this session only and is never written to settings, so the
   // default costs the user nothing permanent. A model they set themselves still wins.
