@@ -1,5 +1,5 @@
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { CONTEXT_WINDOW_TOKENS, QUESTIONS, THRESHOLDS } from "./config.mjs";
+import { COMPLEXITY_MAX_SCORE, CONTEXT_WINDOW_TOKENS, QUESTIONS, THRESHOLDS } from "./config.mjs";
 import { log } from "./log.mjs";
 
 // The SDK's defaults (10s per attempt, 2 retries, no total budget) are far too slow for a
@@ -43,9 +43,9 @@ export async function askJev({ prompt, current, contextTokens, available }) {
     return {
       ...answer,
       metrics: {
-        taskComplexity: task_complexity.score / 10,
-        reasoningRequired: reasoning_required.score / 10,
-        toolComplexity: tool_complexity.score / 10,
+        taskComplexity: task_complexity.score / COMPLEXITY_MAX_SCORE,
+        reasoningRequired: reasoning_required.score / COMPLEXITY_MAX_SCORE,
+        toolComplexity: tool_complexity.score / COMPLEXITY_MAX_SCORE,
         contextSize: Math.min(contextTokens / CONTEXT_WINDOW_TOKENS, 1),
       },
       ms: Date.now() - started,

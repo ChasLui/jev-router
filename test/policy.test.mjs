@@ -1,11 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { decide, detectOverride } from "../src/policy.mjs";
+import { QUESTIONS } from "../src/config.mjs";
 
 const ALL = ["haiku", "sonnet", "opus", "fable"];
 const sure = (choice) => ({ choice, confidence: 0.95 });
 const unsure = (choice) => ({ choice, confidence: 0.3 });
 const base = { prompt: "refactor the parser", current: "sonnet", available: ALL, contextTokens: 0 };
+
+test("score rubrics contain only API-valid descriptions", () => {
+  for (const question of Object.values(QUESTIONS).filter((q) => q.type === "score")) {
+    assert(question.criteria.every((description) => typeof description === "string"));
+    assert(question.criteria.length <= 10);
+  }
+});
 
 test("follows a confident Jev answer", () => {
   assert.deepEqual(decide({ ...base, jev: sure("opus") }), {

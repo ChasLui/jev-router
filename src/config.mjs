@@ -70,17 +70,18 @@ export const CONTEXT_WINDOW_TOKENS = 200000;
 
 const COMPLEXITY_SCALE = [
   "None",
-  null,
-  null,
-  null,
-  null,
+  "Very low",
+  "Low",
+  "Some",
   "Moderate",
-  null,
-  null,
-  null,
-  null,
+  "Moderate to high",
+  "High",
+  "Very high",
+  "Severe",
   "Extreme",
 ];
+
+export const COMPLEXITY_MAX_SCORE = COMPLEXITY_SCALE.length - 1;
 
 /** Phrases that mean "the human already decided", checked against the raw prompt. */
 export const OVERRIDE_PATTERNS = TIERS.map((t) => ({
