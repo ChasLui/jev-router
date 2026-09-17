@@ -40,6 +40,10 @@ test("reads only fresh Codex user turns", () => {
       { type: "additional_tools", role: "developer", tools: [{}] },
       { role: "user", content: [{ type: "input_text", text: "Fix the bug" }] },
       { role: "user", content: [{ type: "input_text", text: "<system_reminder>tools</system_reminder>" }] },
+      {
+        role: "user",
+        content: "<environment_context><current_date>2026-09-17</current_date></environment_context>",
+      },
     ],
   };
   assert.equal(codexNewTurnPrompt(body), "Fix the bug");
@@ -50,6 +54,10 @@ test("reads only fresh Codex user turns", () => {
       input: [
         { type: "additional_tools", role: "developer", tools: [{}] },
         { role: "user", content: "Generate a concise, single-line task title of at most 36 characters" },
+        {
+          role: "user",
+          content: "<environment_context><timezone>Asia/Calcutta</timezone></environment_context>",
+        },
       ],
     }),
     null,
@@ -218,6 +226,10 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
       input: [
         { type: "additional_tools", role: "developer", tools: [{}] },
         { role: "user", content: "Generate a concise, single-line task title of at most 36 characters" },
+        {
+          role: "user",
+          content: "<environment_context><timezone>Asia/Calcutta</timezone></environment_context>",
+        },
       ],
     }),
   });

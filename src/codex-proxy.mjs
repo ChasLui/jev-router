@@ -39,6 +39,7 @@ const cleanPrompt = (text) =>
   text
     .replace(/<system[-_]reminder>[\s\S]*?<\/system[-_]reminder>/gi, "")
     .replace(/<current_datetime>[\s\S]*?<\/current_datetime>/gi, "")
+    .replace(/<environment_context>[\s\S]*?<\/environment_context>/gi, "")
     .trim();
 
 export const isCodexAuxiliaryPrompt = (prompt) =>
