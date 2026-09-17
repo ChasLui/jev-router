@@ -15,13 +15,27 @@ Code's.
 Requires [Claude Code](https://code.claude.com/docs/en/setup) and Node.js 20.12+.
 
 ```bash
-npm install -g jev-router
+git clone https://github.com/gargpratyush/jev-router.git
+cd jev-router
+npm install
+npm link
 echo "JEV_API_KEY=..." > ~/.jev-claude.env
 jev-claude
 ```
 
-Get a key from [TypeSafe](https://docs.typesafe.ai) for free. The package is `jev-router`;
-the command it installs is `jev-claude`. No `ANTHROPIC_API_KEY` is needed:
+On Windows PowerShell, create the environment file with:
+
+```powershell
+Set-Content "$HOME\.jev-claude.env" "JEV_API_KEY=..."
+```
+
+`npm link` makes the `jev-claude` command available globally, so after this one-time setup
+you can run `jev-claude` from any repository. The home-level environment file is also loaded
+regardless of which repository you run it from. Without `npm link`, run
+`node bin/jev-claude.mjs` from the cloned directory.
+
+Get a key from [TypeSafe](https://docs.typesafe.ai) for free. The npm package is not published
+yet, so the repository is run directly with Node.js. No `ANTHROPIC_API_KEY` is needed:
 `jev-claude` reuses your existing `claude login`, so a Claude Pro or Max subscription works
 as-is. Without a Jev key you simply get plain Claude Code.
 
