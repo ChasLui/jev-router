@@ -184,7 +184,7 @@ export async function startProxy() {
             const key = conversationKey(body);
             const state = stateFor(key);
             // What the prompt cache was built on, which is what a downgrade would discard.
-            const current = state.tier ?? "sonnet";
+            const current = state.tier ?? "opus";
             const prompt = newTurnPrompt(body);
             let fresh = null;
             if (prompt) {
