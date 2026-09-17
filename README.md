@@ -21,8 +21,7 @@ Requires Node.js 20.12+ and at least one supported CLI:
 
 ```bash
 npm install -g jev-router
-echo "JEV_API_KEY=..." > ~/.jev-claude.env
-jev-claude
+echo "JEV_API_KEY=..." > ~/.jev-router.env
 ```
 
 ### 2. Local repository
