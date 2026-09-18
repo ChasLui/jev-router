@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sanitizeSchema, newTurnPrompt, applyTier, conversationKey, sessionOf } from "../src/proxy.mjs";
+import http from "node:http";
+import {
+  sanitizeSchema,
+  newTurnPrompt,
+  applyTier,
+  claudeModels,
+  conversationKey,
+  sessionOf,
+  startProxy,
+} from "../src/proxy.mjs";
 
 test("only the sentinel model is routed", () => {
   assert.equal(isAuto("jev-router"), true);
@@ -48,6 +57,70 @@ test("recognises older model versions within a tier", () => {
   assert.equal(tierOf("claude-fable-5-1[1m]"), "fable");
   assert.equal(tierOf("gpt-9"), null);
   assert.equal(tierOf(undefined), null);
+});
+
+test("keeps available Claude model versions as separate Jev choices", () => {
+  assert.deepEqual(
+    claudeModels([
+      { id: "claude-opus-5", display_name: "Claude Opus 5" },
+      { id: "claude-opus-4-8", display_name: "Claude Opus 4.8" },
+    ]).map(({ id, tier }) => ({ id, tier })),
+    [
+      { id: "claude-opus-5", tier: "opus" },
+      { id: "claude-opus-4-8", tier: "opus" },
+    ],
+  );
+});
+
+test("Claude proxy sends exact account models to Jev and routes the chosen version", async (t) => {
+  const seen = [];
+  const upstream = http.createServer((req, res) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => {
+      if (req.url.startsWith("/v1/models")) {
+        res.setHeader("content-type", "application/json");
+        return res.end(JSON.stringify({
+          data: [
+            { id: "claude-opus-5", display_name: "Claude Opus 5" },
+            { id: "claude-opus-4-8", display_name: "Claude Opus 4.8" },
+            { id: "claude-sonnet-5", display_name: "Claude Sonnet 5" },
+          ],
+        }));
+      }
+      seen.push(JSON.parse(Buffer.concat(chunks)));
+      res.setHeader("content-type", "application/json");
+      res.end('{"id":"msg_1","type":"message","model":"claude-opus-4-8"}');
+    });
+  });
+  await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  t.after(() => upstream.close());
+
+  const { port, close } = await startProxy({
+    upstreamURL: `http://127.0.0.1:${upstream.address().port}`,
+    route: async ({ models }) => {
+      assert.deepEqual(models.map((model) => model.id), [
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-sonnet-5",
+      ]);
+      return { choice: "claude-opus-4-8", confidence: 0.91, ms: 1 };
+    },
+  });
+  t.after(close);
+
+  await fetch(`http://127.0.0.1:${port}/v1/models`).then((response) => response.json());
+  await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "jev-router",
+      tools: [{ name: "Bash" }],
+      messages: [{ role: "user", content: "debug this race" }],
+    }),
+  });
+
+  assert.equal(seen[0].model, "claude-opus-4-8");
 });
 
 const withTools = (messages) => ({ tools: [{ name: "Bash" }], messages });

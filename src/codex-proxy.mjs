@@ -2,7 +2,7 @@ import http from "node:http";
 import https from "node:https";
 import { createHash, randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
-import { availableTiers } from "./config.mjs";
+import { availableTiers, shouldUseExactModel } from "./config.mjs";
 import { askJev } from "./router.mjs";
 import { decide } from "./policy.mjs";
 import { log } from "./log.mjs";
@@ -25,6 +25,41 @@ const MODEL_ENV = {
 };
 
 export const codexModelOf = (tier) => process.env[MODEL_ENV[tier]] ?? DEFAULT_MODELS[tier];
+
+export function codexTierOf(model) {
+  const configured = Object.keys(DEFAULT_MODELS).find((tier) => codexModelOf(tier) === model);
+  if (configured) return configured;
+  if (/(?:astra|fable|long)/i.test(model ?? "")) return "fable";
+  if (/(?:sol|opus|strong|max|pro)/i.test(model ?? "")) return "opus";
+  if (/(?:luna|haiku|fast|mini|nano)/i.test(model ?? "")) return "haiku";
+  return /^gpt-/i.test(model ?? "") ? "sonnet" : null;
+}
+
+/** Exact GPT models in Codex's account catalog; configured ids are the cold-start fallback. */
+export function codexModels(models = new Map()) {
+  const available = [...models.values()]
+    .filter((model) => model.slug !== CODEX_AUTO_MODEL && model.supported_in_api !== false)
+    .map((model) => ({
+      id: model.slug,
+      tier: codexTierOf(model.slug),
+      description: [
+        model.display_name,
+        model.description,
+        model.context_window && `${model.context_window} context tokens`,
+      ].filter(Boolean).join("; "),
+    }))
+    .filter((model) => model.tier);
+  return available.length
+    ? available
+    : Object.keys(DEFAULT_MODELS).map((tier) => ({
+        id: codexModelOf(tier),
+        tier,
+        description: codexModelOf(tier),
+      }));
+}
+
+const modelForTier = (models, tier) =>
+  models.find((model) => model.tier === tier)?.id ?? codexModelOf(tier);
 
 const textOf = (content) => {
   if (typeof content === "string") return content;
@@ -88,8 +123,7 @@ export function addJevModel(catalog) {
   return catalog;
 }
 
-export function applyCodexTier(body, tier, models = new Map()) {
-  const model = codexModelOf(tier);
+export function applyCodexTier(body, tier, models = new Map(), model = codexModelOf(tier)) {
   body.model = model;
   const info = models.get(model);
   const efforts = info?.supported_reasoning_levels?.map((level) => level.effort);
@@ -106,8 +140,7 @@ export const upstreamFor = (
   apiBaseURL = API_BASE_URL,
 ) => /\/models(?:\?|$)/.test(path) || headers["chatgpt-account-id"] ? chatgptBaseURL : apiBaseURL;
 
-export function jevDecisionEvents({ tier, confidence, reason }) {
-  const model = codexModelOf(tier);
+export function jevDecisionEvents({ tier, model = codexModelOf(tier), confidence, reason }) {
   const detail = confidence == null ? reason : `${reason}, confidence ${confidence.toFixed(2)}`;
   const id = `jev-${randomUUID()}`;
   const text = reason.startsWith("jev-unavailable")
@@ -154,21 +187,39 @@ export async function startCodexProxy({
           }
           if (body.model === CODEX_AUTO_MODEL) {
             const key = codexConversationKey(body);
-            const current = states.get(key) ?? "sonnet";
+            const candidates = codexModels(models).filter((model) =>
+              availableTiers().includes(model.tier),
+            );
+            const available = [...new Set(candidates.map((model) => model.tier))];
+            const currentModel = states.get(key)?.model ?? modelForTier(candidates, "opus");
+            const current = codexTierOf(currentModel) ?? "opus";
             const prompt = codexNewTurnPrompt(body);
             const explaining = prompt?.includes("<jev-explain>") || /^\$jev-explain\b/i.test(prompt ?? "");
             let tier = current;
+            let model = currentModel;
             if (prompt && !explaining) {
-              const enabled = availableTiers().filter((name) => models.size === 0 || models.has(codexModelOf(name)));
               const contextTokens = Math.round(JSON.stringify(body.input).length / 4);
-              const jev = await route({ prompt, current, contextTokens, available: enabled });
-              const decision = decide({ prompt, jev, current, available: enabled, contextTokens });
+              const jev = await route({ prompt, current: currentModel, contextTokens, models: candidates });
+              const chosen = candidates.find((candidate) => candidate.id === jev?.choice);
+              const decision = decide({
+                prompt,
+                jev: jev && { ...jev, choice: chosen?.tier },
+                current,
+                available,
+                contextTokens,
+              });
               tier = decision.tier;
-              states.set(key, tier);
+              model =
+                shouldUseExactModel(decision.reason, chosen?.tier, tier)
+                  ? chosen.id
+                  : tier === current
+                    ? currentModel
+                    : modelForTier(candidates, tier);
+              states.set(key, { tier, model });
               routing = {
                 prompt,
                 tier,
-                model: codexModelOf(tier),
+                model,
                 confidence: jev?.confidence ?? null,
                 metrics: jev?.metrics ?? null,
                 reason: decision.reason,
@@ -178,7 +229,7 @@ export async function startCodexProxy({
               writeDecision(statusId, routing);
               debug(`${key} ${current} -> ${tier} (${decision.reason}) | ${prompt.slice(0, 60)}`);
             }
-            applyCodexTier(body, tier, models);
+            applyCodexTier(body, tier, models, model);
           } else {
             const prompt = codexNewTurnPrompt(body);
             const explaining = prompt?.includes("<jev-explain>") || /^\$jev-explain\b/i.test(prompt ?? "");

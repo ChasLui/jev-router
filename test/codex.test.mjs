@@ -8,6 +8,7 @@ import {
   addJevModel,
   applyCodexTier,
   codexConversationKey,
+  codexModels,
   codexNewTurnPrompt,
   isCodexAuxiliaryPrompt,
   jevDecisionEvents,
@@ -108,6 +109,17 @@ test("maps tiers and clamps unsupported reasoning effort", () => {
   assert.equal(body.reasoning.effort, "medium");
 });
 
+test("sends exact available GPT models to Jev", () => {
+  const models = new Map([
+    ["gpt-5.6-terra", { slug: "gpt-5.6-terra", display_name: "GPT-5.6-Terra" }],
+    ["gpt-5.6-sol", { slug: "gpt-5.6-sol", display_name: "GPT-5.6-Sol" }],
+  ]);
+  assert.deepEqual(codexModels(models).map(({ id, tier }) => ({ id, tier })), [
+    { id: "gpt-5.6-terra", tier: "sonnet" },
+    { id: "gpt-5.6-sol", tier: "opus" },
+  ]);
+});
+
 test("surfaces routing as a native commentary event", () => {
   const events = jevDecisionEvents({ tier: "opus", confidence: 0.91, reason: "jev" });
   assert.match(events, /response\.output_item\.added/);
@@ -170,13 +182,14 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
   const { port, close } = await startCodexProxy({
     chatgptBaseURL: `${upstreamURL}/backend-api/codex`,
     apiBaseURL: `${upstreamURL}/v1`,
-    route: async () => {
+    route: async ({ models }) => {
       routeCalls++;
+      assert.deepEqual(models.map((model) => model.id), ["gpt-5.6-terra", "gpt-5.6-sol"]);
       return {
-        choice: "opus",
+        choice: "gpt-5.6-sol",
         confidence: 0.91,
         request: { state: { request: "debug this race" } },
-        response: { answers: { model_tier: { choice: "opus", confidence: 0.91 } } },
+        response: { answers: { model: { choice: "gpt-5.6-sol", confidence: 0.91 } } },
         metrics: {
           taskComplexity: 0.82,
           reasoningRequired: 0.91,

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { decide, detectOverride } from "../src/policy.mjs";
-import { QUESTIONS } from "../src/config.mjs";
+import { QUESTIONS, shouldUseExactModel } from "../src/config.mjs";
 
 const ALL = ["haiku", "sonnet", "opus", "fable"];
 const sure = (choice) => ({ choice, confidence: 0.95 });
@@ -82,4 +82,9 @@ test("substitutes upward when the chosen tier is unavailable", () => {
 test("never substitutes upward into paid fable", () => {
   const out = decide({ ...base, current: "haiku", available: ["haiku", "fable"], jev: sure("opus") });
   assert.equal(out.tier, "haiku");
+});
+
+test("accepts exact model changes within the same tier", () => {
+  assert.equal(shouldUseExactModel("jev/no-change", "opus", "opus"), true);
+  assert.equal(shouldUseExactModel("low-confidence-no-downgrade/no-change", "opus", "opus"), false);
 });
