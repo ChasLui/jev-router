@@ -22,7 +22,9 @@ test("the sentinel is not mistaken for a real tier", () => {
   assert.equal(tierOf("jev-router"), null);
 });
 import { tierOf, isAuto } from "../src/config.mjs";
-import { writeDecision, writeStatus, readStatus } from "../src/status.mjs";
+import { writeDecision, writeStatus, readStatus, pruneStale, STATUS_DIR } from "../src/status.mjs";
+import { mkdirSync, statSync, utimesSync, writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 test("reads the session id out of Claude Code's metadata", () => {
   const sid = "11111111-2222-4333-8444-555555555555";
@@ -37,6 +39,26 @@ test("status round-trips per session and misses cleanly", () => {
   assert.deepEqual(readStatus(sid), { tier: "opus", confidence: 0.87, reason: "jev" });
   assert.equal(readStatus("no-such-session"), null);
   assert.doesNotThrow(() => writeStatus("", { tier: "opus" }));
+});
+
+test("status files are private to their owner", { skip: process.platform === "win32" }, () => {
+  const sid = `perm-${process.pid}`;
+  writeStatus(sid, { tier: "opus" });
+  assert.equal(statSync(STATUS_DIR).mode & 0o777, 0o700);
+  assert.equal(statSync(join(STATUS_DIR, `${sid}.json`)).mode & 0o777, 0o600);
+});
+
+test("stale status files are pruned and fresh ones kept", () => {
+  mkdirSync(STATUS_DIR, { recursive: true });
+  const stale = join(STATUS_DIR, `stale-${process.pid}.json`);
+  const fresh = join(STATUS_DIR, `fresh-${process.pid}.json`);
+  writeFileSync(stale, "{}");
+  writeFileSync(fresh, "{}");
+  const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  utimesSync(stale, old, old);
+  assert.ok(pruneStale() >= 1);
+  assert.equal(existsSync(stale), false);
+  assert.equal(existsSync(fresh), true);
 });
 
 test("routing status retains the exact recent Jev exchanges", () => {
