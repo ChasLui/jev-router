@@ -123,6 +123,42 @@ test("Claude proxy sends exact account models to Jev and routes the chosen versi
   assert.equal(seen[0].model, "claude-opus-4-8");
 });
 
+test("a routed request without metadata is recorded under the conversation key", async (t) => {
+  const upstream = http.createServer((req, res) => {
+    req.on("data", () => {});
+    req.on("end", () => {
+      res.setHeader("content-type", "application/json");
+      res.end('{"id":"msg_1","type":"message","model":"claude-sonnet-5"}');
+    });
+  });
+  await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  t.after(() => upstream.close());
+
+  const { port, close } = await startProxy({
+    upstreamURL: `http://127.0.0.1:${upstream.address().port}`,
+    route: async () => ({ choice: "claude-sonnet-5", confidence: 0.77, ms: 1 }),
+  });
+  t.after(close);
+
+  // Exactly what `claude -p` sends first: no metadata, so no session id.
+  const body = {
+    model: "jev-router",
+    tools: [{ name: "Bash" }],
+    messages: [{ role: "user", content: `rename this variable ${process.pid}` }],
+  };
+  await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  assert.equal(sessionOf(body), "", "the request carries no session id");
+  const status = readStatus(conversationKey(body));
+  assert.ok(status, "the decision is filed under the conversation key instead of being dropped");
+  assert.equal(status.tier, "sonnet");
+  assert.equal(status.confidence, 0.77);
+});
+
 const withTools = (messages) => ({ tools: [{ name: "Bash" }], messages });
 
 test("converts a draft-04 boolean exclusiveMinimum into a draft 2020-12 number", () => {
