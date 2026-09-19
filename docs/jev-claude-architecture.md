@@ -9,7 +9,7 @@ flowchart TB
     command --> env["Load environment\nprecedence: process env → .env → ~/.jev-router.env → ~/.jev-claude.env"]
     env --> find["Find `claude` executable on PATH"]
     env --> saved["Read existing ~/.claude/settings.json model\nfor later restoration"]
-    find --> key{"JEV_API_KEY or\nTYPESAFE_API_KEY?"}
+    find --> key{"Routing credentials?\nhasCredentials(): JEV_API_KEY (typesafe),\nCLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (cloudflare)"}
 
     key -- No --> direct["Spawn real Claude Code\nwithout routing"]
     key -- Yes --> proxyStart["Start ephemeral loopback proxy\n127.0.0.1:random-port"]
