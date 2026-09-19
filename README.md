@@ -129,10 +129,12 @@ node -e "console.log(require('node:path').join(require('node:os').tmpdir(), 'jev
 
 Claude filenames use Claude Code's session UUID. Codex filenames use
 `codex-<jev-codex-process-id>.json`. These temporary files contain prompt text and Jev's exact
-request and response; the operating system may remove them during normal temporary-file cleanup.
+request and response, so they are readable only by you (the directory is created with mode 700 and each
+file with 600). Files not updated for 7 days are deleted automatically, and the operating system
+may also remove them during normal temporary-file cleanup.
 
 > Choosing a model with `Enter` can save it as Claude Code's default. `jev-claude` restores
-> the previous default on exit so `jev-auto` cannot break plain `claude`.
+> the previous default on exit so `jev-router` cannot break plain `claude`.
 
 ## OpenAI Codex interface
 
@@ -171,7 +173,7 @@ you -> OpenAI Codex -> jev-codex proxy -> OpenAI
 ```
 
 Claude Code uses `ANTHROPIC_BASE_URL`; Codex uses a temporary custom provider with
-`requires_openai_auth=true`. Claude uses `jev-auto` and Codex uses `jev-router` as the
+`requires_openai_auth=true`. Claude and Codex both use `jev-router` as the
 routing sentinel.
 Any concrete model selected by the user passes through unchanged.
 

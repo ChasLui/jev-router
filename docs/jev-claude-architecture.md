@@ -13,7 +13,7 @@ flowchart TB
 
     key -- No --> direct["Spawn real Claude Code\nwithout routing"]
     key -- Yes --> proxyStart["Start ephemeral loopback proxy\n127.0.0.1:random-port"]
-    proxyStart --> launchEnv["Set ANTHROPIC_BASE_URL to proxy\nExpose `jev-auto` as Jev Router in /model\nDefault to `jev-auto` unless user set ANTHROPIC_MODEL"]
+    proxyStart --> launchEnv["Set ANTHROPIC_BASE_URL to proxy\nExpose `jev-router` as Jev Router in /model\nDefault to `jev-router` unless user set ANTHROPIC_MODEL"]
     launchEnv --> statusCfg{"Status line allowed?"}
     statusCfg -- "No: JEV_NO_STATUSLINE or user statusLine" --> spawn
     statusCfg -- Yes --> statusCfgFile["Write temporary Claude status-line settings"] --> spawn
@@ -22,7 +22,7 @@ flowchart TB
 
   spawn --> claude["Claude Code\n(native UI, login, tools, sessions, permissions)"]
   claude --> picker{"/model selection"}
-  picker -- "Jev Router" --> auto["model: `jev-auto`\n(routing sentinel)"]
+  picker -- "Jev Router" --> auto["model: `jev-router`\n(routing sentinel)"]
   picker -- "Concrete model" --> manual["model: user-selected model"]
   auto --> loopback
   manual --> loopback
@@ -33,7 +33,7 @@ flowchart TB
     loopback --> head{"HEAD probe?"}
     head -- Yes --> headOK["Return 200"]
     head -- No --> parse["Parse request body\nOptionally dump body with JEV_DUMP\nNormalize legacy MCP JSON schemas"]
-    parse --> mode{"model is `jev-auto`?"}
+    parse --> mode{"model is `jev-router`?"}
 
     mode -- No --> pass["Leave model unchanged\nFor agent requests, publish manual status"]
     mode -- Yes --> conversation["Build conversation key\nsession ID + first-message text\nKeep up to 50 independent states"]
@@ -44,7 +44,7 @@ flowchart TB
     jev --> policy
     policy --> saveTier["Pin chosen tier in conversation state"]
     saveTier --> pinned
-    pinned --> rewrite["Rewrite `jev-auto` to Claude tier model ID\nStrip unsupported thinking / effort fields"]
+    pinned --> rewrite["Rewrite `jev-router` to Claude tier model ID\nStrip unsupported thinking / effort fields"]
     rewrite --> publish["Write latest tier, confidence, and reason\nto per-session temp status file"]
     pass --> forward
     publish --> forward["Forward request to api.anthropic.com\nPreserve Claude Code authorization headers\nstream upstream response unchanged"]
@@ -69,7 +69,7 @@ flowchart TB
   pass --> statusFile
   statusLine --> claude
 
-  spawn --> exit["On process exit: close proxy\nand restore saved model only if it is still `jev-auto`"]
+  spawn --> exit["On process exit: close proxy\nand restore saved model only if it is still `jev-router`"]
 ```
 
 The routing call happens only for the first request of a user turn. Tool-loop continuations reuse
