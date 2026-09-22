@@ -165,8 +165,9 @@ const debug = (line) => process.env.JEV_DEBUG && log(line);
 const upstreamPath = (base, path) => `${new URL(base).pathname.replace(/\/$/, "")}${path}`;
 
 export async function startCodexProxy({
-  chatgptBaseURL = CHATGPT_BASE_URL,
-  apiBaseURL = API_BASE_URL,
+  // A custom upstream (e.g. an OpenAI-compatible gateway) takes all traffic, /models included.
+  chatgptBaseURL = process.env.JEV_CODEX_API_BASE_URL || CHATGPT_BASE_URL,
+  apiBaseURL = process.env.JEV_CODEX_API_BASE_URL || API_BASE_URL,
   route = askJev,
   statusId = "",
 } = {}) {

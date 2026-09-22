@@ -263,3 +263,48 @@ test("proxy preserves Codex auth, picker, routing, and native decision output", 
   assert.equal(seen[3].body.model, "gpt-5.6-sol");
   assert.equal(readStatus(statusId).metrics.reasoningRequired, 0.91);
 });
+
+test("JEV_CODEX_API_BASE_URL sends all traffic, /models included, to a custom gateway", async (t) => {
+  const seen = [];
+  const upstream = http.createServer((req, res) => {
+    seen.push(req.url);
+    res.end(req.url.startsWith("/v1/models") ? JSON.stringify({ data: [{ id: "deepseek-v4.1-flash" }] }) : "");
+  });
+  await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  t.after(() => upstream.close());
+  const env = { JEV_CODEX_API_BASE_URL: `http://127.0.0.1:${upstream.address().port}/v1` };
+  for (const tier of ["FAST", "BALANCED", "STRONG", "LONG"]) env[`JEV_CODEX_${tier}_MODEL`] = `gw-${tier.toLowerCase()}`;
+  const saved = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, env);
+  t.after(() => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  let candidates;
+  const { port, close } = await startCodexProxy({
+    route: async ({ models }) => {
+      candidates = models.map((model) => model.id);
+      return { choice: "gw-fast", confidence: 0.9 };
+    },
+  });
+  t.after(close);
+  const headers = { authorization: "Bearer sk-test", "chatgpt-account-id": "acct" };
+
+  const catalog = await fetch(`http://127.0.0.1:${port}/models?client_version=1`, { headers }).then((r) => r.json());
+  assert.deepEqual(catalog, { data: [{ id: "deepseek-v4.1-flash" }] });
+  await fetch(`http://127.0.0.1:${port}/responses`, {
+    method: "POST",
+    headers: { ...headers, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "jev-router",
+      input: [
+        { type: "additional_tools", role: "developer", tools: [{}] },
+        { role: "user", content: [{ type: "input_text", text: "rename this variable" }] },
+      ],
+    }),
+  });
+  assert.deepEqual(seen, ["/v1/models?client_version=1", "/v1/responses"]);
+  assert.deepEqual(candidates, ["gw-fast", "gw-balanced", "gw-strong"]);
+});

@@ -224,6 +224,7 @@ sub-agents are pinned separately. Routing is fail-open: Jev failure never blocks
 | `JEV_CODEX_BALANCED_MODEL` | Codex | Balanced model; defaults to `gpt-5.6-terra`. |
 | `JEV_CODEX_STRONG_MODEL` | Codex | Strong model; defaults to `gpt-5.6-sol`. |
 | `JEV_CODEX_LONG_MODEL` | Codex | Long model; defaults to `gpt-6-astra`. |
+| `JEV_CODEX_API_BASE_URL` | Codex | Sends all upstream traffic, including `/models`, to this OpenAI-compatible Responses base URL (e.g. `https://gateway.example.com/v1`) instead of OpenAI/ChatGPT. Pair it with the `JEV_CODEX_*_MODEL` ids the gateway serves. |
 
 Existing environment variables have highest precedence, followed by `.env` in the launch
 directory, `~/.jev-router.env`, and the legacy `~/.jev-claude.env`.
