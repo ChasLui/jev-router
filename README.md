@@ -217,6 +217,8 @@ sub-agents are pinned separately. Routing is fail-open: Jev failure never blocks
 | `JEV_API_KEY` | Both | Enables routing. `TYPESAFE_API_KEY` also works. Not needed in Cloudflare or Vercel mode. |
 | `JEV_PROVIDER` | Both | Route through a provider other than the TypeSafe API: `cloudflare` (Workers AI `typesafe/jev`, requires `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`) or `vercel` (AI Gateway `typesafe-ai/jev`, requires `AI_GATEWAY_API_KEY`). |
 | `JEV_ALLOW_FABLE` | Both | Enables the opt-in long tier. |
+| `JEV_TIMEOUT_MS` | Both | Per-attempt Jev request timeout in milliseconds; defaults to `1500`. |
+| `JEV_DEADLINE_MS` | Both | Wall-clock deadline for the whole Jev routing call in milliseconds; defaults to `3000`. |
 | `JEV_DEBUG` | Both | Logs decisions and rewrites to `~/.jev-claude.log` in interactive sessions. |
 | `JEV_DUMP` | Both | Dumps request bodies for debugging wire-format changes. |
 | `JEV_NO_STATUSLINE` | Claude | Disables the injected Claude status line. |

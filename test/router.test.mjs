@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { askJev } from "../src/router.mjs";
-import { hasCredentials, providerName } from "../src/config.mjs";
+import { hasCredentials, providerName, THRESHOLDS } from "../src/config.mjs";
 
 const MODELS = [{ id: "claude-opus-5", tier: "opus", description: "Claude Opus 5" }];
 
@@ -270,4 +270,43 @@ test("vercel failures fail open with null", async (t) => {
     );
   const out = await askJev({ prompt: "x", current: "sonnet", contextTokens: 0, models: MODELS });
   assert.equal(out, null);
+});
+
+test("Jev timeouts come from JEV_TIMEOUT_MS / JEV_DEADLINE_MS, invalid values keep defaults", (t) => {
+  t.after(() => {
+    delete process.env.JEV_TIMEOUT_MS;
+    delete process.env.JEV_DEADLINE_MS;
+  });
+  assert.equal(THRESHOLDS.jevTimeoutMs, 1500);
+  assert.equal(THRESHOLDS.jevDeadlineMs, 3000);
+  process.env.JEV_TIMEOUT_MS = "6000";
+  process.env.JEV_DEADLINE_MS = "8000";
+  assert.equal(THRESHOLDS.jevTimeoutMs, 6000);
+  assert.equal(THRESHOLDS.jevDeadlineMs, 8000);
+  for (const bad of ["0", "-5", "1.5", "abc", ""]) {
+    process.env.JEV_TIMEOUT_MS = bad;
+    assert.equal(THRESHOLDS.jevTimeoutMs, 1500);
+  }
+});
+
+test("askJev, shared by jev-claude and jev-codex, honours JEV_DEADLINE_MS", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    delete process.env.JEV_PROVIDER;
+    delete process.env.CLOUDFLARE_API_TOKEN;
+    delete process.env.CLOUDFLARE_ACCOUNT_ID;
+    delete process.env.JEV_DEADLINE_MS;
+  });
+  process.env.JEV_PROVIDER = "cloudflare";
+  process.env.CLOUDFLARE_API_TOKEN = "t";
+  process.env.CLOUDFLARE_ACCOUNT_ID = "a";
+  process.env.JEV_DEADLINE_MS = "50";
+  globalThis.fetch = (_url, { signal }) =>
+    new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
+
+  const started = Date.now();
+  const out = await askJev({ prompt: "x", current: "sonnet", contextTokens: 0, models: MODELS });
+  assert.equal(out, null);
+  assert(Date.now() - started < 1000);
 });
