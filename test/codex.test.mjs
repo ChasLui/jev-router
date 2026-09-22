@@ -66,6 +66,28 @@ test("reads only fresh Codex user turns", () => {
   assert.equal(isCodexAuxiliaryPrompt("Generate a concise, single-line task title of at most 36 characters"), true);
 });
 
+test("reads Codex 0.155 turns that carry top-level tools and trailing hook context", () => {
+  // Trimmed from a real Codex 0.155.1 `exec` request body.
+  const text = (value) => [{ type: "input_text", text: value }];
+  const body = {
+    tools: [{ type: "function", name: "exec_command" }],
+    input: [
+      { type: "message", role: "developer", content: text("<permissions instructions>...") },
+      { type: "message", role: "user", content: text("# AGENTS.md instructions\n\n<INSTRUCTIONS>...") },
+      { type: "message", role: "developer", content: text("hook session-start context") },
+      { type: "message", role: "user", content: text("Run `ls package.json`") },
+      { type: "message", role: "developer", content: text("<openviking-context>...") },
+    ],
+  };
+  assert.equal(codexNewTurnPrompt(body), "Run `ls package.json`");
+  assert.equal(codexNewTurnPrompt({ ...body, tools: [] }), null);
+  body.input.push(
+    { type: "function_call", name: "exec_command", arguments: '{"cmd":"ls package.json"}', call_id: "c1" },
+    { type: "function_call_output", call_id: "c1", output: "package.json" },
+  );
+  assert.equal(codexNewTurnPrompt(body), null);
+});
+
 test("keeps sub-agent routing state separate", () => {
   const base = { input: [{ role: "user", content: "same prompt" }] };
   assert.notEqual(

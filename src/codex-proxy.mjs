@@ -83,10 +83,16 @@ export const isCodexAuxiliaryPrompt = (prompt) =>
 /** User text that starts a new Codex turn, or null for tool continuations. */
 export function codexNewTurnPrompt(body) {
   if (!Array.isArray(body?.input)) return null;
-  if (!body.input.some((item) => item?.type === "additional_tools")) return null;
+  // Older Codex marks agent turns with an `additional_tools` item; 0.155+ sends top-level `tools`.
+  const agentTurn =
+    body.input.some((item) => item?.type === "additional_tools") ||
+    (Array.isArray(body.tools) && body.tools.length > 0);
+  if (!agentTurn) return null;
   for (const item of [...body.input].reverse()) {
-    if (item?.type === "function_call_output" || item?.type === "custom_tool_call_output") return null;
-    if (item?.role !== "user") continue;
+    // Hooks append developer context after the user message; anything else (tool calls/outputs,
+    // reasoning, assistant text) after the last user message means a continuation.
+    if (item?.role === "developer" || item?.role === "system") continue;
+    if (item?.role !== "user") return null;
     const prompt = cleanPrompt(textOf(item.content));
     if (prompt && !isCodexAuxiliaryPrompt(prompt)) return prompt;
   }
