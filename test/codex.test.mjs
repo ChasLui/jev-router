@@ -88,6 +88,74 @@ test("reads Codex 0.155 turns that carry top-level tools and trailing hook conte
   assert.equal(codexNewTurnPrompt(body), null);
 });
 
+// Trimmed from real Codex 0.155.1 requests captured around compaction.
+const compactionShapes = () => {
+  const text = (value) => [{ type: "input_text", text: value }];
+  const meta = (kind, compaction) => ({
+    turn_id: "turn-1",
+    "x-codex-turn-metadata": JSON.stringify({ turn_id: "turn-1", request_kind: kind, compaction }),
+  });
+  const task = { type: "message", role: "user", content: text("Use the shell to cat README.md") };
+  return {
+    // Auto (mid_turn/pre_turn) and manual /compact summarisation requests carry no tools.
+    summary: {
+      tools: [],
+      client_metadata: meta("compaction", { trigger: "manual", phase: "standalone_turn" }),
+      input: [
+        task,
+        { type: "message", role: "assistant", content: [{ type: "output_text", text: "Reading." }] },
+        { type: "message", role: "user", content: text("You are performing a CONTEXT CHECKPOINT COMPACTION. ...") },
+      ],
+    },
+    // The request resuming a turn after mid-turn auto-compaction looks like a fresh user turn.
+    resumed: {
+      tools: [{ type: "function", name: "exec_command" }],
+      client_metadata: meta("turn"),
+      input: [
+        { type: "message", role: "developer", content: text("<permissions instructions>...") },
+        task,
+        { type: "message", role: "user", content: text("Another language model started to solve this problem ...") },
+        { type: "message", role: "developer", content: text("hook context") },
+      ],
+    },
+  };
+};
+
+test("Codex compaction requests are never new user turns", () => {
+  const { summary, resumed } = compactionShapes();
+  assert.equal(codexNewTurnPrompt(summary), null);
+  assert.equal(codexNewTurnPrompt(resumed, "turn-1"), null);
+  assert.match(codexNewTurnPrompt(resumed, "turn-0"), /^Another language model/);
+});
+
+test("proxy does not re-route a turn resumed after mid-turn compaction", async (t) => {
+  const upstream = http.createServer((req, res) => {
+    req.resume();
+    req.on("end", () => res.end(""));
+  });
+  await new Promise((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+  t.after(() => upstream.close());
+  let routeCalls = 0;
+  const { port, close } = await startCodexProxy({
+    apiBaseURL: `http://127.0.0.1:${upstream.address().port}/v1`,
+    route: async () => {
+      routeCalls++;
+      return null;
+    },
+  });
+  t.after(close);
+  const { resumed } = compactionShapes();
+  const first = { ...resumed, model: "jev-router", prompt_cache_key: "main", input: resumed.input.slice(0, 2) };
+  for (const body of [first, { ...resumed, model: "jev-router", prompt_cache_key: "main" }]) {
+    await fetch(`http://127.0.0.1:${port}/responses`, {
+      method: "POST",
+      headers: { authorization: "Bearer sk-test", "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => r.text());
+  }
+  assert.equal(routeCalls, 1);
+});
+
 test("keeps sub-agent routing state separate", () => {
   const base = { input: [{ role: "user", content: "same prompt" }] };
   assert.notEqual(

@@ -81,8 +81,11 @@ export const isCodexAuxiliaryPrompt = (prompt) =>
   /^Generate a concise, single-line task title\b/i.test(prompt);
 
 /** User text that starts a new Codex turn, or null for tool continuations. */
-export function codexNewTurnPrompt(body) {
+export function codexNewTurnPrompt(body, routedTurnId) {
   if (!Array.isArray(body?.input)) return null;
+  // Codex 0.155+ tags every request with its turn id. A turn that was already routed is a
+  // continuation even when it looks fresh, e.g. the request resuming after mid-turn compaction.
+  if (routedTurnId && body.client_metadata?.turn_id === routedTurnId) return null;
   // Older Codex marks agent turns with an `additional_tools` item; 0.155+ sends top-level `tools`.
   const agentTurn =
     body.input.some((item) => item?.type === "additional_tools") ||
@@ -200,7 +203,7 @@ export async function startCodexProxy({
             const available = [...new Set(candidates.map((model) => model.tier))];
             const currentModel = states.get(key)?.model ?? modelForTier(candidates, "opus");
             const current = codexTierOf(currentModel) ?? "opus";
-            const prompt = codexNewTurnPrompt(body);
+            const prompt = codexNewTurnPrompt(body, states.get(key)?.turnId);
             const explaining = prompt?.includes("<jev-explain>") || /^\$jev-explain\b/i.test(prompt ?? "");
             let tier = current;
             let model = currentModel;
@@ -222,7 +225,7 @@ export async function startCodexProxy({
                   : tier === current
                     ? currentModel
                     : modelForTier(candidates, tier);
-              states.set(key, { tier, model });
+              states.set(key, { tier, model, turnId: body.client_metadata?.turn_id });
               routing = {
                 prompt,
                 tier,
