@@ -45,6 +45,36 @@ export const tierOf = (model) =>
 export const availableTiers = () =>
   TIER_NAMES.filter((n) => n !== "fable" || process.env.JEV_ALLOW_FABLE === "1");
 
+/**
+ * Which Jev endpoint answers routing questions: the TypeSafe API (`typesafe`), the same
+ * model hosted on Cloudflare Workers AI (`cloudflare`), or the same model behind the
+ * Vercel AI Gateway (`vercel`). Explicit, never auto-detected, so a half-set token cannot
+ * silently switch providers.
+ */
+export const providerName = () => {
+  if (process.env.JEV_PROVIDER === "cloudflare") return "cloudflare";
+  if (process.env.JEV_PROVIDER === "vercel") return "vercel";
+  return "typesafe";
+};
+
+/** Whether the active provider has the credentials it needs. */
+export const hasCredentials = () => {
+  switch (providerName()) {
+    case "cloudflare":
+      return Boolean(process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID);
+    case "vercel":
+      return Boolean(process.env.AI_GATEWAY_API_KEY);
+    default:
+      return Boolean(process.env.JEV_API_KEY || process.env.TYPESAFE_API_KEY);
+  }
+};
+
+/** Positive integer milliseconds from the environment, or the default. */
+const envMs = (name, fallback) => {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+};
+
 export const THRESHOLDS = {
   /** Below this Jev confidence we refuse to downgrade and cap upgrades at `uncertainCeiling`. */
   minConfidence: 0.3,
@@ -59,10 +89,15 @@ export const THRESHOLDS = {
   /**
    * Per-attempt Jev HTTP timeout and the hard wall-clock deadline for the whole routing
    * call. Measured: ~300-350ms warm, ~900-1000ms on the first call (TLS handshake), so the
-   * deadline leaves room for one retry after a cold-start timeout.
+   * deadline leaves room for one retry after a cold-start timeout. Slow links can raise both
+   * with JEV_TIMEOUT_MS / JEV_DEADLINE_MS; read lazily so env files loaded at startup apply.
    */
-  jevTimeoutMs: 1500,
-  jevDeadlineMs: 3000,
+  get jevTimeoutMs() {
+    return envMs("JEV_TIMEOUT_MS", 1500);
+  },
+  get jevDeadlineMs() {
+    return envMs("JEV_DEADLINE_MS", 3000);
+  },
   jevMaxRetries: 1,
 };
 

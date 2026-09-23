@@ -81,12 +81,21 @@ export const isCodexAuxiliaryPrompt = (prompt) =>
   /^Generate a concise, single-line task title\b/i.test(prompt);
 
 /** User text that starts a new Codex turn, or null for tool continuations. */
-export function codexNewTurnPrompt(body) {
+export function codexNewTurnPrompt(body, routedTurnId) {
   if (!Array.isArray(body?.input)) return null;
-  if (!body.input.some((item) => item?.type === "additional_tools")) return null;
+  // Codex 0.155+ tags every request with its turn id. A turn that was already routed is a
+  // continuation even when it looks fresh, e.g. the request resuming after mid-turn compaction.
+  if (routedTurnId && body.client_metadata?.turn_id === routedTurnId) return null;
+  // Older Codex marks agent turns with an `additional_tools` item; 0.155+ sends top-level `tools`.
+  const agentTurn =
+    body.input.some((item) => item?.type === "additional_tools") ||
+    (Array.isArray(body.tools) && body.tools.length > 0);
+  if (!agentTurn) return null;
   for (const item of [...body.input].reverse()) {
-    if (item?.type === "function_call_output" || item?.type === "custom_tool_call_output") return null;
-    if (item?.role !== "user") continue;
+    // Hooks append developer context after the user message; anything else (tool calls/outputs,
+    // reasoning, assistant text) after the last user message means a continuation.
+    if (item?.role === "developer" || item?.role === "system") continue;
+    if (item?.role !== "user") return null;
     const prompt = cleanPrompt(textOf(item.content));
     if (prompt && !isCodexAuxiliaryPrompt(prompt)) return prompt;
   }
@@ -144,7 +153,7 @@ export function jevDecisionEvents({ tier, model = codexModelOf(tier), confidence
   const detail = confidence == null ? reason : `${reason}, confidence ${confidence.toFixed(2)}`;
   const id = `jev-${randomUUID()}`;
   const text = reason.startsWith("jev-unavailable")
-    ? `[Jev] unavailable; using ${model}. Add JEV_API_KEY=... to ~/.jev-router.env and restart jev-codex.`
+    ? `[Jev] unavailable; using ${model}. Add routing credentials (JEV_API_KEY, JEV_PROVIDER=cloudflare, or JEV_PROVIDER=vercel) to ~/.jev-router.env and restart jev-codex.`
     : `[Jev] routed this turn to ${model} (${detail}).`;
   const item = {
     type: "message",
@@ -165,8 +174,9 @@ const debug = (line) => process.env.JEV_DEBUG && log(line);
 const upstreamPath = (base, path) => `${new URL(base).pathname.replace(/\/$/, "")}${path}`;
 
 export async function startCodexProxy({
-  chatgptBaseURL = CHATGPT_BASE_URL,
-  apiBaseURL = API_BASE_URL,
+  // A custom upstream (e.g. an OpenAI-compatible gateway) takes all traffic, /models included.
+  chatgptBaseURL = process.env.JEV_CODEX_API_BASE_URL || CHATGPT_BASE_URL,
+  apiBaseURL = process.env.JEV_CODEX_API_BASE_URL || API_BASE_URL,
   route = askJev,
   statusId = "",
 } = {}) {
@@ -193,7 +203,7 @@ export async function startCodexProxy({
             const available = [...new Set(candidates.map((model) => model.tier))];
             const currentModel = states.get(key)?.model ?? modelForTier(candidates, "opus");
             const current = codexTierOf(currentModel) ?? "opus";
-            const prompt = codexNewTurnPrompt(body);
+            const prompt = codexNewTurnPrompt(body, states.get(key)?.turnId);
             const explaining = prompt?.includes("<jev-explain>") || /^\$jev-explain\b/i.test(prompt ?? "");
             let tier = current;
             let model = currentModel;
@@ -215,7 +225,7 @@ export async function startCodexProxy({
                   : tier === current
                     ? currentModel
                     : modelForTier(candidates, tier);
-              states.set(key, { tier, model });
+              states.set(key, { tier, model, turnId: body.client_metadata?.turn_id });
               routing = {
                 prompt,
                 tier,
